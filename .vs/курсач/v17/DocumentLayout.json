@@ -3,12 +3,8 @@
   "WorkspaceRootPath": "C:\\Users\\anast\\source\\repos\\\u043A\u0443\u0440\u0441\u0430\u0447\\",
   "Documents": [
     {
-      "AbsoluteMoniker": "D:0:0:{BD52798E-729D-4A28-8CCB-448BE9E7AD3C}|\u043A\u0443\u0440\u0441\u0430\u0447\\\u043A\u0443\u0440\u0441\u0430\u0447.vcxproj|C:\\Users\\anast\\source\\repos\\\u043A\u0443\u0440\u0441\u0430\u0447\\\u043A\u0443\u0440\u0441\u0430\u0447\\code_new.c||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}",
-      "RelativeMoniker": "D:0:0:{BD52798E-729D-4A28-8CCB-448BE9E7AD3C}|\u043A\u0443\u0440\u0441\u0430\u0447\\\u043A\u0443\u0440\u0441\u0430\u0447.vcxproj|solutionrelative:\u043A\u0443\u0440\u0441\u0430\u0447\\code_new.c||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}"
-    },
-    {
-      "AbsoluteMoniker": "D:0:0:{BD52798E-729D-4A28-8CCB-448BE9E7AD3C}|\u043A\u0443\u0440\u0441\u0430\u0447\\\u043A\u0443\u0440\u0441\u0430\u0447.vcxproj|C:\\Users\\anast\\source\\repos\\\u043A\u0443\u0440\u0441\u0430\u0447\\\u043A\u0443\u0440\u0441\u0430\u0447\\\u0430\u043B\u0433\u043E\u0440\u0438\u0442\u043C.c||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}",
-      "RelativeMoniker": "D:0:0:{BD52798E-729D-4A28-8CCB-448BE9E7AD3C}|\u043A\u0443\u0440\u0441\u0430\u0447\\\u043A\u0443\u0440\u0441\u0430\u0447.vcxproj|solutionrelative:\u043A\u0443\u0440\u0441\u0430\u0447\\\u0430\u043B\u0433\u043E\u0440\u0438\u0442\u043C.c||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}"
+      "AbsoluteMoniker": "D:0:0:{BD52798E-729D-4A28-8CCB-448BE9E7AD3C}|\u043A\u0443\u0440\u0441\u0430\u0447\\\u043A\u0443\u0440\u0441\u0430\u0447.vcxproj|C:\\Users\\anast\\source\\repos\\\u043A\u0443\u0440\u0441\u0430\u0447\\\u043A\u0443\u0440\u0441\u0430\u0447\\first_code.c||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}",
+      "RelativeMoniker": "D:0:0:{BD52798E-729D-4A28-8CCB-448BE9E7AD3C}|\u043A\u0443\u0440\u0441\u0430\u0447\\\u043A\u0443\u0440\u0441\u0430\u0447.vcxproj|solutionrelative:\u043A\u0443\u0440\u0441\u0430\u0447\\first_code.c||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}"
     }
   ],
   "DocumentGroupContainers": [
@@ -18,8 +14,21 @@
       "DocumentGroups": [
         {
           "DockedWidth": 200,
-          "SelectedChildIndex": 2,
+          "SelectedChildIndex": 0,
           "Children": [
+            {
+              "$type": "Document",
+              "DocumentIndex": 0,
+              "Title": "first_code.c",
+              "DocumentMoniker": "C:\\Users\\anast\\source\\repos\\\u043A\u0443\u0440\u0441\u0430\u0447\\\u043A\u0443\u0440\u0441\u0430\u0447\\first_code.c",
+              "RelativeDocumentMoniker": "\u043A\u0443\u0440\u0441\u0430\u0447\\first_code.c",
+              "ToolTip": "C:\\Users\\anast\\source\\repos\\\u043A\u0443\u0440\u0441\u0430\u0447\\\u043A\u0443\u0440\u0441\u0430\u0447\\first_code.c",
+              "RelativeToolTip": "\u043A\u0443\u0440\u0441\u0430\u0447\\first_code.c",
+              "ViewState": "AgIAAMgAAAAAAAAAAADwv9AAAAAnAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000423|",
+              "WhenOpened": "2025-12-05T20:20:17.832Z",
+              "EditorCaption": ""
+            },
             {
               "$type": "Bookmark",
               "Name": "ST:0:0:{1c4feeaa-4718-4aa9-859d-94ce25d182ba}"
@@ -27,32 +36,6 @@
             {
               "$type": "Bookmark",
               "Name": "ST:0:0:{aa2115a1-9712-457b-9047-dbb71ca2cdd2}"
-            },
-            {
-              "$type": "Document",
-              "DocumentIndex": 0,
-              "Title": "code_new.c",
-              "DocumentMoniker": "C:\\Users\\anast\\source\\repos\\\u043A\u0443\u0440\u0441\u0430\u0447\\\u043A\u0443\u0440\u0441\u0430\u0447\\code_new.c",
-              "RelativeDocumentMoniker": "\u043A\u0443\u0440\u0441\u0430\u0447\\code_new.c",
-              "ToolTip": "C:\\Users\\anast\\source\\repos\\\u043A\u0443\u0440\u0441\u0430\u0447\\\u043A\u0443\u0440\u0441\u0430\u0447\\code_new.c",
-              "RelativeToolTip": "\u043A\u0443\u0440\u0441\u0430\u0447\\code_new.c",
-              "ViewState": "AgIAAP0EAAAAAAAAAIAwwAcFAAAyAAAAAAAAAA==",
-              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000423|",
-              "WhenOpened": "2025-12-05T08:44:47.624Z",
-              "EditorCaption": ""
-            },
-            {
-              "$type": "Document",
-              "DocumentIndex": 1,
-              "Title": "\u0430\u043B\u0433\u043E\u0440\u0438\u0442\u043C.c",
-              "DocumentMoniker": "C:\\Users\\anast\\source\\repos\\\u043A\u0443\u0440\u0441\u0430\u0447\\\u043A\u0443\u0440\u0441\u0430\u0447\\\u0430\u043B\u0433\u043E\u0440\u0438\u0442\u043C.c",
-              "RelativeDocumentMoniker": "\u043A\u0443\u0440\u0441\u0430\u0447\\\u0430\u043B\u0433\u043E\u0440\u0438\u0442\u043C.c",
-              "ToolTip": "C:\\Users\\anast\\source\\repos\\\u043A\u0443\u0440\u0441\u0430\u0447\\\u043A\u0443\u0440\u0441\u0430\u0447\\\u0430\u043B\u0433\u043E\u0440\u0438\u0442\u043C.c",
-              "RelativeToolTip": "\u043A\u0443\u0440\u0441\u0430\u0447\\\u0430\u043B\u0433\u043E\u0440\u0438\u0442\u043C.c",
-              "ViewState": "AgIAAHgAAAAAAAAAAAAIwIYAAAATAAAAAAAAAA==",
-              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000423|",
-              "WhenOpened": "2025-11-19T16:07:47.021Z",
-              "EditorCaption": ""
             }
           ]
         }
