@@ -1,0 +1,10 @@
+﻿  main.c
+C:\Users\anast\source\repos\структуры КУРСАЧ\курсач\main.c(318,19): warning C4244: инициализация: преобразование "double" в "int", возможна потеря данных
+C:\Users\anast\source\repos\структуры КУРСАЧ\курсач\main.c(319,19): warning C4244: инициализация: преобразование "double" в "int", возможна потеря данных
+C:\Users\anast\source\repos\структуры КУРСАЧ\курсач\main.c(323,40): warning C4244: инициализация: преобразование "int" в "float", возможна потеря данных
+C:\Users\anast\source\repos\структуры КУРСАЧ\курсач\main.c(333,40): warning C4244: инициализация: преобразование "int" в "float", возможна потеря данных
+C:\Users\anast\source\repos\структуры КУРСАЧ\курсач\main.c(343,44): warning C4244: инициализация: преобразование "int" в "float", возможна потеря данных
+C:\Users\anast\source\repos\структуры КУРСАЧ\курсач\main.c(344,44): warning C4244: инициализация: преобразование "int" в "float", возможна потеря данных
+C:\Users\anast\source\repos\структуры КУРСАЧ\курсач\main.c(357,48): warning C4244: инициализация: преобразование "int" в "float", возможна потеря данных
+C:\Users\anast\source\repos\структуры КУРСАЧ\курсач\main.c(358,48): warning C4244: инициализация: преобразование "int" в "float", возможна потеря данных
+  курсач.vcxproj -> C:\Users\anast\source\repos\структуры КУРСАЧ\x64\Debug\курсач.exe
