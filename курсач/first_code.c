@@ -99,6 +99,71 @@ typedef struct {
     int winner; // 0: нет, 1: игрок, 2: ИИ, 3: ничья
 } GameContext;
 
+// лучшие ходы
+typedef struct {
+    long long x[64];
+    long long y[64];
+    int score[64];
+    int n;
+} best_move;
+
+
+
+Table* create_table(unsigned long long cap);
+unsigned long long hash(long long x, long long y, unsigned long long capacity);
+void insert(Table* board, long long x, long long y, char value);
+void remove_cell(Table* board, long long x, long long y);
+char get_value(Table* board, long long x, long long y, unsigned long long size, GameContext* ctx);
+bool check_win(Table* board, unsigned long long size, unsigned long long len,
+    long long x, long long y, char s, GameContext* ctx);
+int line_score(Table* board, unsigned long long size, unsigned long long len,
+    long long x, long long y, char s, GameContext* ctx);
+int eval_heuristic(Table* board, base* parameters, bounds* bbox, GameContext* ctx);
+void bbox_on_place(bounds* bbox, long long x, long long y);
+void bbox_on_remove(bounds* bbox, Table* board, unsigned long long size);
+void best_move_push(best_move* moves, long long x, long long y, int sc, short K);
+void generate_candidates(Table* board, base* parameters, bounds* bbox, bool forAI,
+    short K, best_move* out, GameContext* ctx);
+bool find_immediate_move(Table* board, base* parameters, bounds* bbox, bool forAI,
+    long long* bx, long long* by, GameContext* ctx);
+bool find_adjacent_move(Table* board, base* parameters, bounds* bbox,
+    long long* bx, long long* by, GameContext* ctx);
+int minimax(Table* board, base* parameters, bounds* bbox, bool isMax,
+    int alpha, int beta, short depth, GameContext* ctx);
+void minimax_move(Table* board, base* parameters, bounds* bbox, GameContext* ctx);
+bool reset_saved_game();
+void save_game(GameContext* ctx);
+bool load_game(GameContext* ctx);
+void drawcircle(float center_x, float center_y, float radius);
+void drawcross(float x, float y);
+void drawchar(char c, float x, float y, float scale);
+void drawtext(GameContext* ctx, const char* text, float x, float y, float scale);
+void drawbutton(GameContext* ctx, Button btn);
+void drawgrid(GameContext* ctx);
+void draw_game_borders(GameContext* ctx);
+void draw_menu(GameContext* ctx);
+void draw_help(GameContext* ctx);
+void draw_about(GameContext* ctx);
+void draw_settings(GameContext* ctx);
+void draw_game_over(GameContext* ctx);
+void draw_game(GameContext* ctx);
+bool mouse_over_button(Button btn, double mouse_x, double mouse_y);
+void get_difficulty_color(int difficulty, float* r, float* g, float* b);
+void mouse_button_callback(GLFWwindow* window, int button, int action, int mods);
+void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods);
+void update_hover_state(GLFWwindow* window, GameContext* ctx);
+void computer_move(GameContext* ctx);
+void init_game_context(GameContext* ctx);
+void easy_ai_move(Table* board, base* parameters, bounds* bbox, GameContext* ctx);
+void medium_minimax_move(Table* board, base* parameters, bounds* bbox, GameContext* ctx);
+void hard_ai_move(Table* board, base* parameters, bounds* bbox, GameContext* ctx);
+void expert_ai_move(Table* board, base* parameters, bounds* bbox, GameContext* ctx);
+bool quick_check_win(Table* board, unsigned long long size, unsigned long long len, long long x, long long y, char s, GameContext* ctx);
+int fast_eval(Table* board, base* parameters, bounds* bbox, GameContext* ctx);
+void computer_as_player_move(GameContext* ctx);
+
+
+
 /*-------------Реализация хеш-таблицы и управления доской-------------*/
 
 // инициализация доски
@@ -194,6 +259,70 @@ bool check_win(Table* board, unsigned long long size, unsigned long long len,
     }
 
     return false;
+}
+
+void generate_candidates(Table* board, base* parameters, bounds* bbox,
+    bool forAI, short K, best_move* out, GameContext* ctx) {
+    out->n = 0;
+
+    if (!bbox->initialized) {
+        // Для начала игры
+        if (get_value(board, 0, 0, parameters->size, ctx) == '.') {
+            best_move_push(out, 0, 0, 0, K);
+        }
+        return;
+    }
+
+    // Ограничиваем поиск разумными пределами для производительности
+    long long search_radius = (parameters->difficulty >= 3) ? 3 : 2;
+    long long x0 = bbox->minx - search_radius;
+    long long x1 = bbox->maxx + search_radius;
+    long long y0 = bbox->miny - search_radius;
+    long long y1 = bbox->maxy + search_radius;
+
+    // Дополнительные ограничения для больших полей
+    if (x1 - x0 > 15) {
+        x1 = x0 + 15;
+    }
+    if (y1 - y0 > 15) {
+        y1 = y0 + 15;
+    }
+
+    // Для EASY уровня используем только случайные ходы
+    if (parameters->difficulty == 1) {
+        // Собираем все свободные клетки
+        for (long long y = y0; y <= y1; ++y) {
+            for (long long x = x0; x <= x1; ++x) {
+                if (get_value(board, x, y, parameters->size, ctx) == '.') {
+                    best_move_push(out, x, y, 0, K);
+                }
+            }
+        }
+        return;
+    }
+
+    // Для других уровней используем эвристику
+    for (long long y = y0; y <= y1; ++y) {
+        for (long long x = x0; x <= x1; ++x) {
+            if (get_value(board, x, y, parameters->size, ctx) != '.') continue;
+
+            // Быстрая оценка важности клетки
+            int priority = 0;
+
+            // Клетки рядом с другими фигурами более важны
+            for (int dx = -1; dx <= 1; dx++) {
+                for (int dy = -1; dy <= 1; dy++) {
+                    if (dx == 0 && dy == 0) continue;
+                    char neighbor = get_value(board, x + dx, y + dy, parameters->size, ctx);
+                    if (neighbor == parameters->ai || neighbor == parameters->player) {
+                        priority += 100;
+                    }
+                }
+            }
+
+            best_move_push(out, x, y, priority, K);
+        }
+    }
 }
 
 // оценка потенциала линии
@@ -309,13 +438,6 @@ void bbox_on_remove(bounds* bbox, Table* board, unsigned long long size) {
     bbox->initialized = true;
 }
 
-// лучшие ходы
-typedef struct {
-    long long x[64];
-    long long y[64];
-    int score[64];
-    int n;
-} best_move;
 
 // добавление хода в список лучших ходов
 void best_move_push(best_move* moves, long long x, long long y, int sc, short K) {
@@ -350,55 +472,6 @@ void best_move_push(best_move* moves, long long x, long long y, int sc, short K)
     moves->y[i] = y;
 }
 
-// генерация лучших клеток для хода
-void generate_candidates(Table* board, base* parameters, bounds* bbox, bool forAI, short K, best_move* out, GameContext* ctx) {
-    out->n = 0;
-    short R = 2;
-
-    if (!bbox->initialized) {
-        long long c = 0; // для бесконечного поля начинаем с центра (0,0)
-        if (get_value(board, c, c, parameters->size, ctx) == '.') {
-            best_move_push(out, c, c, 0, K);
-        }
-        return;
-    }
-
-    // для бесконечного поля используем полный диапазон координат из bbox
-    long long x0 = bbox->minx - R;
-    long long x1 = bbox->maxx + R;
-    long long y0 = bbox->miny - R;
-    long long y1 = bbox->maxy + R;
-
-    // ограничиваем поиск разумными пределами для производительности
-    if (x1 - x0 > 20) x1 = x0 + 20;
-    if (y1 - y0 > 20) y1 = y0 + 20;
-
-    for (long long y = y0; y <= y1; ++y) {
-        for (long long x = x0; x <= x1; ++x) {
-            if (get_value(board, x, y, parameters->size, ctx) != '.') continue;
-
-            int neighbors = 0;
-            for (int dx = -2; dx <= 2; ++dx) {
-                for (int dy = -2; dy <= 2; ++dy) {
-                    if (!dx && !dy) continue;
-                    char value = get_value(board, x + dx, y + dy, parameters->size, ctx);
-                    if (value == parameters->ai || value == parameters->player) {
-                        neighbors++;
-                    }
-                }
-            }
-
-            if (!neighbors && parameters->count_moves > 0) continue;
-
-            int score_ai = line_score(board, parameters->size, parameters->len, x, y, parameters->ai, ctx);
-            int score_pl = line_score(board, parameters->size, parameters->len, x, y, parameters->player, ctx);
-            int sc = forAI ? score_ai - (score_pl / 2) : score_pl - (score_ai / 2);
-            sc += neighbors * 1000;
-
-            best_move_push(out, x, y, sc, K);
-        }
-    }
-}
 
 // поиск выигрышных ходов
 bool find_immediate_move(Table* board, base* parameters, bounds* bbox, bool forAI, long long* bx, long long* by, GameContext* ctx) {
@@ -528,6 +601,52 @@ int minimax(Table* board, base* parameters, bounds* bbox, bool isMax, int alpha,
         return best;
     }
 }
+
+bool quick_check_win(Table* board, unsigned long long size, unsigned long long len,
+    long long x, long long y, char s, GameContext* ctx) {
+    short D[4][2] = { {1,0},{0,1},{1,1},{1,-1} };
+
+    for (int d = 0; d < 4; ++d) {
+        int dx = D[d][0], dy = D[d][1];
+        unsigned long long count = 1;
+
+        //Проверяем только len клеток в каждом направлении
+        for (int k = 1; k < len; ++k) {
+            char val = get_value(board, x + dx * k, y + dy * k, size, ctx);
+            if (val != s) break;
+            count++;
+        }
+
+        for (int k = 1; k < len; ++k) {
+            char val = get_value(board, x - dx * k, y - dy * k, size, ctx);
+            if (val != s) break;
+            count++;
+        }
+
+        if (count >= len) return true;
+    }
+
+    return false;
+}
+
+
+//оценка позиции
+int fast_eval(Table* board, base* parameters, bounds* bbox, GameContext* ctx) {
+    if (!bbox->initialized) return 0;
+
+    int score = 0;
+    //Провер только ключевые клетки вокруг занятых
+    for (long long y = bbox->miny - 1; y <= bbox->maxy + 1; y++) {
+        for (long long x = bbox->minx - 1; x <= bbox->maxx + 1; x++) {
+            char cell = get_value(board, x, y, parameters->size, ctx);
+            if (cell == parameters->ai) score += 10;
+            else if (cell == parameters->player) score -= 10;
+        }
+    }
+    return score;
+}
+
+
 
 void minimax_move(Table* board, base* parameters, bounds* bbox, GameContext* ctx) {
     long long bx, by;

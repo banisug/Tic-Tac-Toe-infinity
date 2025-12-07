@@ -35,7 +35,7 @@
               "RelativeDocumentMoniker": "\u043A\u0443\u0440\u0441\u0430\u0447\\first_code.c",
               "ToolTip": "C:\\Users\\anast\\source\\repos\\\u043A\u0443\u0440\u0441\u0430\u0447\\\u043A\u0443\u0440\u0441\u0430\u0447\\first_code.c",
               "RelativeToolTip": "\u043A\u0443\u0440\u0441\u0430\u0447\\first_code.c",
-              "ViewState": "AgIAAKMCAAAAAAAAAAAUwLYCAAAAAAAAAAAAAA==",
+              "ViewState": "AgIAAKAAAAAAAAAAAAAowJEAAAAiAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000423|",
               "WhenOpened": "2025-12-05T20:20:17.832Z",
               "EditorCaption": ""
@@ -50,8 +50,8 @@
       "FloatingWindowState": {
         "Id": "174ca8b6-0c0e-4a8f-870c-f5f731082324",
         "Display": 0,
-        "X": 364,
-        "Y": 157,
+        "X": 474,
+        "Y": 200,
         "Width": 752,
         "Height": 556,
         "WindowState": 0
@@ -69,7 +69,7 @@
               "RelativeDocumentMoniker": "..\\..\\..\\Desktop\\code_new.c",
               "ToolTip": "C:\\Users\\anast\\Desktop\\code_new.c",
               "RelativeToolTip": "..\\..\\..\\Desktop\\code_new.c",
-              "ViewState": "AgIAAA0DAAAAAAAAAAAowPoCAAAAAAAAAAAAAA==",
+              "ViewState": "AgIAAIEAAAAAAAAAAAAAAKUAAAAvAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000423|",
               "WhenOpened": "2025-12-07T16:47:19.191Z",
               "EditorCaption": ""

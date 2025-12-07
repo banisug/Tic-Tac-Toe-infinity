@@ -1,28 +1,28 @@
 ﻿  first_code.c
-C:\Users\anast\source\repos\курсач\курсач\first_code.c(159,12): warning C4018: >=: несоответствие типов со знаком и без знака
-C:\Users\anast\source\repos\курсач\курсач\first_code.c(159,25): warning C4018: >=: несоответствие типов со знаком и без знака
-C:\Users\anast\source\repos\курсач\курсач\first_code.c(242,34): warning C4244: +=: преобразование "unsigned __int64" в "int", возможна потеря данных
-C:\Users\anast\source\repos\курсач\курсач\first_code.c(441,27): warning C4018: >=: несоответствие типов со знаком и без знака
-C:\Users\anast\source\repos\курсач\курсач\first_code.c(441,63): warning C4018: >=: несоответствие типов со знаком и без знака
-C:\Users\anast\source\repos\курсач\курсач\first_code.c(808,13): warning C4013: toupper: нет определения; предполагается "extern" с возвратом типа "int"
-C:\Users\anast\source\repos\курсач\курсач\first_code.c(1174,25): warning C4244: инициализация: преобразование "double" в "__int64", возможна потеря данных
-C:\Users\anast\source\repos\курсач\курсач\first_code.c(1175,25): warning C4244: инициализация: преобразование "double" в "__int64", возможна потеря данных
-C:\Users\anast\source\repos\курсач\курсач\first_code.c(1179,40): warning C4244: инициализация: преобразование "__int64" в "float", возможна потеря данных
-C:\Users\anast\source\repos\курсач\курсач\first_code.c(1188,40): warning C4244: инициализация: преобразование "__int64" в "float", возможна потеря данных
-C:\Users\anast\source\repos\курсач\курсач\first_code.c(1198,44): warning C4244: инициализация: преобразование "__int64" в "float", возможна потеря данных
-C:\Users\anast\source\repos\курсач\курсач\first_code.c(1199,44): warning C4244: инициализация: преобразование "__int64" в "float", возможна потеря данных
-C:\Users\anast\source\repos\курсач\курсач\first_code.c(1219,48): warning C4244: инициализация: преобразование "__int64" в "float", возможна потеря данных
-C:\Users\anast\source\repos\курсач\курсач\first_code.c(1220,48): warning C4244: инициализация: преобразование "__int64" в "float", возможна потеря данных
-C:\Users\anast\source\repos\курсач\курсач\first_code.c(1591,52): warning C4244: =: преобразование "__int64" в "int", возможна потеря данных
-C:\Users\anast\source\repos\курсач\курсач\first_code.c(1597,64): warning C4244: =: преобразование "__int64" в "int", возможна потеря данных
-C:\Users\anast\source\repos\курсач\курсач\first_code.c(1603,52): warning C4244: =: преобразование "__int64" в "int", возможна потеря данных
-C:\Users\anast\source\repos\курсач\курсач\first_code.c(1609,64): warning C4244: =: преобразование "__int64" в "int", возможна потеря данных
-C:\Users\anast\source\repos\курсач\курсач\first_code.c(1721,44): warning C4244: =: преобразование "unsigned __int64" в "int", возможна потеря данных
-C:\Users\anast\source\repos\курсач\курсач\first_code.c(1722,44): warning C4244: =: преобразование "unsigned __int64" в "int", возможна потеря данных
-C:\Users\anast\source\repos\курсач\курсач\first_code.c(1715,19): warning C4244: инициализация: преобразование "double" в "int", возможна потеря данных
-C:\Users\anast\source\repos\курсач\курсач\first_code.c(1716,19): warning C4244: инициализация: преобразование "double" в "int", возможна потеря данных
-C:\Users\anast\source\repos\курсач\курсач\first_code.c(1728,36): warning C4244: инициализация: преобразование "int" в "float", возможна потеря данных
-C:\Users\anast\source\repos\курсач\курсач\first_code.c(1729,36): warning C4244: инициализация: преобразование "int" в "float", возможна потеря данных
-C:\Users\anast\source\repos\курсач\курсач\first_code.c(1730,34): warning C4244: инициализация: преобразование "int" в "float", возможна потеря данных
-C:\Users\anast\source\repos\курсач\курсач\first_code.c(1731,34): warning C4244: инициализация: преобразование "int" в "float", возможна потеря данных
+C:\Users\anast\source\repos\курсач\курсач\first_code.c(224,12): warning C4018: >=: несоответствие типов со знаком и без знака
+C:\Users\anast\source\repos\курсач\курсач\first_code.c(224,25): warning C4018: >=: несоответствие типов со знаком и без знака
+C:\Users\anast\source\repos\курсач\курсач\first_code.c(371,34): warning C4244: +=: преобразование "unsigned __int64" в "int", возможна потеря данных
+C:\Users\anast\source\repos\курсач\курсач\first_code.c(514,27): warning C4018: >=: несоответствие типов со знаком и без знака
+C:\Users\anast\source\repos\курсач\курсач\first_code.c(514,63): warning C4018: >=: несоответствие типов со знаком и без знака
+C:\Users\anast\source\repos\курсач\курсач\first_code.c(927,13): warning C4013: toupper: нет определения; предполагается "extern" с возвратом типа "int"
+C:\Users\anast\source\repos\курсач\курсач\first_code.c(1293,25): warning C4244: инициализация: преобразование "double" в "__int64", возможна потеря данных
+C:\Users\anast\source\repos\курсач\курсач\first_code.c(1294,25): warning C4244: инициализация: преобразование "double" в "__int64", возможна потеря данных
+C:\Users\anast\source\repos\курсач\курсач\first_code.c(1298,40): warning C4244: инициализация: преобразование "__int64" в "float", возможна потеря данных
+C:\Users\anast\source\repos\курсач\курсач\first_code.c(1307,40): warning C4244: инициализация: преобразование "__int64" в "float", возможна потеря данных
+C:\Users\anast\source\repos\курсач\курсач\first_code.c(1317,44): warning C4244: инициализация: преобразование "__int64" в "float", возможна потеря данных
+C:\Users\anast\source\repos\курсач\курсач\first_code.c(1318,44): warning C4244: инициализация: преобразование "__int64" в "float", возможна потеря данных
+C:\Users\anast\source\repos\курсач\курсач\first_code.c(1338,48): warning C4244: инициализация: преобразование "__int64" в "float", возможна потеря данных
+C:\Users\anast\source\repos\курсач\курсач\first_code.c(1339,48): warning C4244: инициализация: преобразование "__int64" в "float", возможна потеря данных
+C:\Users\anast\source\repos\курсач\курсач\first_code.c(1710,52): warning C4244: =: преобразование "__int64" в "int", возможна потеря данных
+C:\Users\anast\source\repos\курсач\курсач\first_code.c(1716,64): warning C4244: =: преобразование "__int64" в "int", возможна потеря данных
+C:\Users\anast\source\repos\курсач\курсач\first_code.c(1722,52): warning C4244: =: преобразование "__int64" в "int", возможна потеря данных
+C:\Users\anast\source\repos\курсач\курсач\first_code.c(1728,64): warning C4244: =: преобразование "__int64" в "int", возможна потеря данных
+C:\Users\anast\source\repos\курсач\курсач\first_code.c(1840,44): warning C4244: =: преобразование "unsigned __int64" в "int", возможна потеря данных
+C:\Users\anast\source\repos\курсач\курсач\first_code.c(1841,44): warning C4244: =: преобразование "unsigned __int64" в "int", возможна потеря данных
+C:\Users\anast\source\repos\курсач\курсач\first_code.c(1834,19): warning C4244: инициализация: преобразование "double" в "int", возможна потеря данных
+C:\Users\anast\source\repos\курсач\курсач\first_code.c(1835,19): warning C4244: инициализация: преобразование "double" в "int", возможна потеря данных
+C:\Users\anast\source\repos\курсач\курсач\first_code.c(1847,36): warning C4244: инициализация: преобразование "int" в "float", возможна потеря данных
+C:\Users\anast\source\repos\курсач\курсач\first_code.c(1848,36): warning C4244: инициализация: преобразование "int" в "float", возможна потеря данных
+C:\Users\anast\source\repos\курсач\курсач\first_code.c(1849,34): warning C4244: инициализация: преобразование "int" в "float", возможна потеря данных
+C:\Users\anast\source\repos\курсач\курсач\first_code.c(1850,34): warning C4244: инициализация: преобразование "int" в "float", возможна потеря данных
   курсач.vcxproj -> C:\Users\anast\source\repos\курсач\x64\Debug\курсач.exe
