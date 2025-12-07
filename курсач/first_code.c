@@ -616,6 +616,84 @@ void easy_ai_move(Table* board, base* parameters, bounds* bbox, GameContext* ctx
     }
 }
 
+void medium_minimax_move(Table* board, base* parameters, bounds* bbox, GameContext* ctx) {
+    long long bx, by;
+
+    //Проверка выигрышных ходов
+    if (find_immediate_move(board, parameters, bbox, true, &bx, &by, ctx) ||
+        find_immediate_move(board, parameters, bbox, false, &bx, &by, ctx)) {
+        insert(board, bx, by, parameters->ai);
+        bbox_on_place(bbox, bx, by);
+        parameters->last_ai_x = bx;
+        parameters->last_ai_y = by;
+        return;
+    }
+
+    //Эвристический выбор лучшего хода без глубокого поиска
+    best_move cand;
+    generate_candidates(board, parameters, bbox, true, 16, &cand, ctx); // меньше кандидатов
+
+    if (cand.n > 0) {
+        //Выбираем лучший ход по эвристике
+        insert(board, cand.x[0], cand.y[0], parameters->ai);
+        bbox_on_place(bbox, cand.x[0], cand.y[0]);
+        parameters->last_ai_x = cand.x[0];
+        parameters->last_ai_y = cand.y[0];
+    }
+}
+
+void hard_ai_move(Table* board, base* parameters, bounds* bbox, GameContext* ctx) {
+    long long bx, by;
+
+    //Проверка выигрышного хода для ИИ
+    if (find_immediate_move(board, parameters, bbox, true, &bx, &by, ctx)) {
+        insert(board, bx, by, parameters->ai);
+        bbox_on_place(bbox, bx, by);
+        parameters->last_ai_x = bx;
+        parameters->last_ai_y = by;
+        return;
+    }
+
+    //Проверка выигрышного хода для игрока (блокировка)
+    if (find_immediate_move(board, parameters, bbox, false, &bx, &by, ctx)) {
+        insert(board, bx, by, parameters->ai);
+        bbox_on_place(bbox, bx, by);
+        parameters->last_ai_x = bx;
+        parameters->last_ai_y = by;
+        return;
+    }
+
+    //Если нет срочных ходов используем мини-макс с меньшей глубиной
+    medium_minimax_move(board, parameters, bbox, ctx); // глубина 2 для скорости
+}
+
+
+void expert_ai_move(Table* board, base* parameters, bounds* bbox, GameContext* ctx) {
+    long long bx, by;
+
+    // cначала ищем ход для блокировки игрока (приоритет)
+    if (find_immediate_move(board, parameters, bbox, false, &bx, &by, ctx)) {
+        insert(board, bx, by, parameters->ai);
+        bbox_on_place(bbox, bx, by);
+        parameters->last_ai_x = bx;
+        parameters->last_ai_y = by;
+        return;
+    }
+
+    // ищем свой выигрышный ход
+    if (find_immediate_move(board, parameters, bbox, true, &bx, &by, ctx)) {
+        insert(board, bx, by, parameters->ai);
+        bbox_on_place(bbox, bx, by);
+        parameters->last_ai_x = bx;
+        parameters->last_ai_y = by;
+        return;
+    }
+
+    //Если нет, то используем продвинутый мини-макс
+    medium_minimax_move(board, parameters, bbox, ctx);
+}
+
+
 /*-------------Реализация сохранения и загрузки-------------*/
 
 // сброс сохраненной игры

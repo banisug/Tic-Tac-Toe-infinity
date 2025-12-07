@@ -17,7 +17,7 @@
       "DocumentGroups": [
         {
           "DockedWidth": 200,
-          "SelectedChildIndex": 3,
+          "SelectedChildIndex": 2,
           "Children": [
             {
               "$type": "Bookmark",
@@ -35,7 +35,7 @@
               "RelativeDocumentMoniker": "\u043A\u0443\u0440\u0441\u0430\u0447\\first_code.c",
               "ToolTip": "C:\\Users\\anast\\source\\repos\\\u043A\u0443\u0440\u0441\u0430\u0447\\\u043A\u0443\u0440\u0441\u0430\u0447\\first_code.c",
               "RelativeToolTip": "\u043A\u0443\u0440\u0441\u0430\u0447\\first_code.c",
-              "ViewState": "AgIAAE8CAAAAAAAAAAAIwGgCAAABAAAAAAAAAA==",
+              "ViewState": "AgIAAKMCAAAAAAAAAAAUwLYCAAAAAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000423|",
               "WhenOpened": "2025-12-05T20:20:17.832Z",
               "EditorCaption": ""
@@ -69,7 +69,7 @@
               "RelativeDocumentMoniker": "..\\..\\..\\Desktop\\code_new.c",
               "ToolTip": "C:\\Users\\anast\\Desktop\\code_new.c",
               "RelativeToolTip": "..\\..\\..\\Desktop\\code_new.c",
-              "ViewState": "AgIAANQCAAAAAAAAAAAowN8CAAABAAAAAAAAAA==",
+              "ViewState": "AgIAAA0DAAAAAAAAAAAowPoCAAAAAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000423|",
               "WhenOpened": "2025-12-07T16:47:19.191Z",
               "EditorCaption": ""
