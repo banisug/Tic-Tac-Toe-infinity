@@ -1,3 +1,4 @@
+//#define _CRT_SECURE_NO_WARNINGS
 #include <stdio.h>
 #include <stdlib.h>
 #include <locale.h>
@@ -8,26 +9,26 @@
 #include <glew.h>
 #include <glfw3.h>
 #include <string.h>
+#include <ctype.h>
 
-
+#define C 1.41 // константа для монте карло
 #define WINDOW_WIDTH 800
 #define WINDOW_HEIGHT 600
 #define CELL_SIZE 100
 #define VISIBLE_CELLS_X 8
 #define VISIBLE_CELLS_Y 6
-#define MAX_SIZE 1000
+#define MAX_SIZE 100
 #define MIN_SIZE 3
-#define MAX_WIN_LINE 1000
+#define MAX_WIN_LINE 100
 
-
-// клетка
+// доска
 typedef struct Node {
     long long x, y;
     char value;
     struct Node* next;
 } Node;
 
-// хеш-таблица (доска)
+// хеш-таблица
 typedef struct {
     Node** buckets;
     unsigned long long capacity;
@@ -40,6 +41,7 @@ typedef struct {
     unsigned long long count_moves;
     long long last_ai_x, last_ai_y;
     long long last_pl_x, last_pl_y;
+    short depth;
     char player;
     char ai;
     short difficulty; // 1: easy, 2: middle, 3: hard, 4: impossible
@@ -80,8 +82,9 @@ typedef struct {
     bounds bbox;
     float char_width;
     float char_height;
-    int view_offset_x; // смещение камеры по горизонтали
-    int view_offset_y; // смещение камеры по вертикали
+    float char_spacing;
+    int view_offset_x;
+    int view_offset_y;
     long long cursor_x, cursor_y;
     bool is_player_turn;
     Button help_button;
@@ -99,88 +102,14 @@ typedef struct {
     int winner; // 0: нет, 1: игрок, 2: ИИ, 3: ничья
 } GameContext;
 
-// лучшие ходы
-typedef struct {
-    long long x[64];
-    long long y[64];
-    int score[64];
-    int n;
-} best_move;
-
-
-
-Table* create_table(unsigned long long cap);
-unsigned long long hash(long long x, long long y, unsigned long long capacity);
-void insert(Table* board, long long x, long long y, char value);
-void remove_cell(Table* board, long long x, long long y);
-char get_value(Table* board, long long x, long long y, unsigned long long size, GameContext* ctx);
-bool check_win(Table* board, unsigned long long size, unsigned long long len,
-    long long x, long long y, char s, GameContext* ctx);
-int line_score(Table* board, unsigned long long size, unsigned long long len,
-    long long x, long long y, char s, GameContext* ctx);
-int eval_heuristic(Table* board, base* parameters, bounds* bbox, GameContext* ctx);
-void bbox_on_place(bounds* bbox, long long x, long long y);
-void bbox_on_remove(bounds* bbox, Table* board, unsigned long long size);
-void best_move_push(best_move* moves, long long x, long long y, int sc, short K);
-void generate_candidates(Table* board, base* parameters, bounds* bbox, bool forAI,
-    short K, best_move* out, GameContext* ctx);
-bool find_immediate_move(Table* board, base* parameters, bounds* bbox, bool forAI,
-    long long* bx, long long* by, GameContext* ctx);
-bool find_adjacent_move(Table* board, base* parameters, bounds* bbox,
-    long long* bx, long long* by, GameContext* ctx);
-int minimax(Table* board, base* parameters, bounds* bbox, bool isMax,
-    int alpha, int beta, short depth, GameContext* ctx);
-void minimax_move(Table* board, base* parameters, bounds* bbox, GameContext* ctx);
-bool reset_saved_game();
-void save_game(GameContext* ctx);
-bool load_game(GameContext* ctx);
-void drawcircle(float center_x, float center_y, float radius);
-void drawcross(float x, float y);
-void drawchar(char c, float x, float y, float scale);
-void drawtext(GameContext* ctx, const char* text, float x, float y, float scale);
-void drawbutton(GameContext* ctx, Button btn);
-void drawgrid(GameContext* ctx);
-void draw_game_borders(GameContext* ctx);
-void draw_menu(GameContext* ctx);
-void draw_help(GameContext* ctx);
-void draw_about(GameContext* ctx);
-void draw_settings(GameContext* ctx);
-void draw_game_over(GameContext* ctx);
-void draw_game(GameContext* ctx);
-bool mouse_over_button(Button btn, double mouse_x, double mouse_y);
-void get_difficulty_color(int difficulty, float* r, float* g, float* b);
-void mouse_button_callback(GLFWwindow* window, int button, int action, int mods);
-void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods);
-void update_hover_state(GLFWwindow* window, GameContext* ctx);
-void computer_move(GameContext* ctx);
-void init_game_context(GameContext* ctx);
-void easy_ai_move(Table* board, base* parameters, bounds* bbox, GameContext* ctx);
-void medium_minimax_move(Table* board, base* parameters, bounds* bbox, GameContext* ctx);
-void hard_ai_move(Table* board, base* parameters, bounds* bbox, GameContext* ctx);
-void expert_ai_move(Table* board, base* parameters, bounds* bbox, GameContext* ctx);
-bool quick_check_win(Table* board, unsigned long long size, unsigned long long len, long long x, long long y, char s, GameContext* ctx);
-int fast_eval(Table* board, base* parameters, bounds* bbox, GameContext* ctx);
-void computer_as_player_move(GameContext* ctx);
-
-
-
-/*-------------Реализация хеш-таблицы и управления доской-------------*/
-
-// инициализация доски
-Table* create_table(unsigned long long cap) {
-    Table* t = (Table*)malloc(sizeof(Table));
-    t->buckets = (Node**)calloc(cap, sizeof(Node*));
-    if (!t) return NULL;
-    if (!t->buckets) {
-        free(t);
-        return NULL;
-    }
-    t->capacity = cap;
-    return t;
-}
+// типы алгоритмов
+typedef enum {
+    MINIMAX,
+    MCTS
+} algorithms;
 
 // хеш функция для таблицы
-unsigned long long hash(long long x, long long y, unsigned long long capacity) {
+unsigned long long hash_mix64(long long x, long long y, unsigned long long capacity) {
     unsigned long long z = (unsigned long long)x;
     z = (z ^ (z >> 30)) * 0xbf58476d1ce4e5b9ULL;
     z = (z ^ (z >> 27)) * 0x94d049bb133111ebULL;
@@ -189,10 +118,31 @@ unsigned long long hash(long long x, long long y, unsigned long long capacity) {
     return z % capacity;
 }
 
+// инициализация доски
+Table* create_table(unsigned long long cap) {
+    Table* t = (Table*)malloc(sizeof(Table));
+    t->buckets = (Node**)calloc(cap, sizeof(Node*));
+    t->capacity = cap;
+    return t;
+}
+
+// сброс сохраненной игры
+bool reset_saved_game() {
+    FILE* file = fopen("save.dat", "rb");
+    if (file) {
+        fclose(file);
+        // Если файл существует, удаляем его
+        if (remove("save.dat") == 0) {
+            return true;
+        }
+    }
+    return false; // Файла не существует или не удалось удалить
+}
+
 // добавление крестика или нолика на доску (в хеш таблицу)
 void insert(Table* board, long long x, long long y, char value) {
     if (x >= MAX_SIZE || y >= MAX_SIZE) return; // защита от переполнения
-    unsigned long long index = hash(x, y, board->capacity);
+    unsigned long long index = hash_mix64(x, y, board->capacity);
     Node* newNode = (Node*)malloc(sizeof(Node));
     if (!newNode) return;
 
@@ -205,7 +155,7 @@ void insert(Table* board, long long x, long long y, char value) {
 
 // удаление крестика или нолика с доски (из хеш таблицы)
 void remove_cell(Table* board, long long x, long long y) {
-    unsigned long long index = hash(x, y, board->capacity);
+    unsigned long long index = hash_mix64(x, y, board->capacity);
     Node* current = board->buckets[index];
     Node* prev = NULL;
     while (current != NULL) {
@@ -222,7 +172,7 @@ void remove_cell(Table* board, long long x, long long y) {
 
 char get_value(Table* board, long long x, long long y, unsigned long long size, GameContext* ctx) {
     if ((x >= size || y >= size) && ctx->parameters.infinite_field == 0) return '\0';
-    unsigned long long index = hash(x, y, board->capacity);
+    unsigned long long index = hash_mix64(x, y, board->capacity);
     Node* current = board->buckets[index];
     while (current != NULL) {
         if (current->x == x && current->y == y) return current->value;
@@ -230,8 +180,6 @@ char get_value(Table* board, long long x, long long y, unsigned long long size, 
     }
     return '.';
 }
-
-/*-------------Реализация алгоритмов искусственного интеллекта-------------*/
 
 bool check_win(Table* board, unsigned long long size, unsigned long long len,
     long long x, long long y, char s, GameContext* ctx) {
@@ -241,14 +189,14 @@ bool check_win(Table* board, unsigned long long size, unsigned long long len,
         int dx = D[d][0], dy = D[d][1];
         unsigned long long count = 1;
 
-        // проверяем в одном направлении
+        // Проверяем в одном направлении
         for (int k = 1; k < len; ++k) {
             char val = get_value(board, x + dx * k, y + dy * k, size, ctx);
             if (val != s) break;
             count++;
         }
 
-        // проверяем в противоположном направлении
+        // Проверяем в противоположном направлении
         for (int k = 1; k < len; ++k) {
             char val = get_value(board, x - dx * k, y - dy * k, size, ctx);
             if (val != s) break;
@@ -259,70 +207,6 @@ bool check_win(Table* board, unsigned long long size, unsigned long long len,
     }
 
     return false;
-}
-
-void generate_candidates(Table* board, base* parameters, bounds* bbox,
-    bool forAI, short K, best_move* out, GameContext* ctx) {
-    out->n = 0;
-
-    if (!bbox->initialized) {
-        // Для начала игры
-        if (get_value(board, 0, 0, parameters->size, ctx) == '.') {
-            best_move_push(out, 0, 0, 0, K);
-        }
-        return;
-    }
-
-    // Ограничиваем поиск разумными пределами для производительности
-    long long search_radius = (parameters->difficulty >= 3) ? 3 : 2;
-    long long x0 = bbox->minx - search_radius;
-    long long x1 = bbox->maxx + search_radius;
-    long long y0 = bbox->miny - search_radius;
-    long long y1 = bbox->maxy + search_radius;
-
-    // Дополнительные ограничения для больших полей
-    if (x1 - x0 > 15) {
-        x1 = x0 + 15;
-    }
-    if (y1 - y0 > 15) {
-        y1 = y0 + 15;
-    }
-
-    // Для EASY уровня используем только случайные ходы
-    if (parameters->difficulty == 1) {
-        // Собираем все свободные клетки
-        for (long long y = y0; y <= y1; ++y) {
-            for (long long x = x0; x <= x1; ++x) {
-                if (get_value(board, x, y, parameters->size, ctx) == '.') {
-                    best_move_push(out, x, y, 0, K);
-                }
-            }
-        }
-        return;
-    }
-
-    // Для других уровней используем эвристику
-    for (long long y = y0; y <= y1; ++y) {
-        for (long long x = x0; x <= x1; ++x) {
-            if (get_value(board, x, y, parameters->size, ctx) != '.') continue;
-
-            // Быстрая оценка важности клетки
-            int priority = 0;
-
-            // Клетки рядом с другими фигурами более важны
-            for (int dx = -1; dx <= 1; dx++) {
-                for (int dy = -1; dy <= 1; dy++) {
-                    if (dx == 0 && dy == 0) continue;
-                    char neighbor = get_value(board, x + dx, y + dy, parameters->size, ctx);
-                    if (neighbor == parameters->ai || neighbor == parameters->player) {
-                        priority += 100;
-                    }
-                }
-            }
-
-            best_move_push(out, x, y, priority, K);
-        }
-    }
 }
 
 // оценка потенциала линии
@@ -373,6 +257,7 @@ int line_score(Table* board, unsigned long long size, unsigned long long len,
 
     return sum;
 }
+
 
 // оценивает текущее состояние игры с точки зрения ИИ (у кого преимущество)
 int eval_heuristic(Table* board, base* parameters, bounds* bbox, GameContext* ctx) {
@@ -438,6 +323,13 @@ void bbox_on_remove(bounds* bbox, Table* board, unsigned long long size) {
     bbox->initialized = true;
 }
 
+// лучшие ходы
+typedef struct {
+    long long x[64];
+    long long y[64];
+    int score[64];
+    int n;
+} best_move;
 
 // добавление хода в список лучших ходов
 void best_move_push(best_move* moves, long long x, long long y, int sc, short K) {
@@ -473,6 +365,57 @@ void best_move_push(best_move* moves, long long x, long long y, int sc, short K)
 }
 
 
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// генерация лучших клеток для хода
+void generate_candidates(Table* board, base* parameters, bounds* bbox, bool forAI, short K, best_move* out, GameContext* ctx) {
+    out->n = 0;
+    short R = 2;
+
+    if (!bbox->initialized) {
+        long long c = 0; // Для бесконечного поля начинаем с центра (0,0)
+        if (get_value(board, c, c, parameters->size, ctx) == '.') {
+            best_move_push(out, c, c, 0, K);
+        }
+        return;
+    }
+
+    // для бесконечного поля используем полный диапазон координат из bbox
+    long long x0 = bbox->minx - R;
+    long long x1 = bbox->maxx + R;
+    long long y0 = bbox->miny - R;
+    long long y1 = bbox->maxy + R;
+
+    // ограничиваем поиск разумными пределами для производительности
+    if (x1 - x0 > 20) x1 = x0 + 20;
+    if (y1 - y0 > 20) y1 = y0 + 20;
+
+    for (long long y = y0; y <= y1; ++y) {
+        for (long long x = x0; x <= x1; ++x) {
+            if (get_value(board, x, y, parameters->size, ctx) != '.') continue;
+
+            int neighbors = 0;
+            for (int dx = -2; dx <= 2; ++dx) {
+                for (int dy = -2; dy <= 2; ++dy) {
+                    if (!dx && !dy) continue;
+                    char value = get_value(board, x + dx, y + dy, parameters->size, ctx);
+                    if (value == parameters->ai || value == parameters->player) {
+                        neighbors++;
+                    }
+                }
+            }
+
+            if (!neighbors && parameters->count_moves > 0) continue;
+
+            int score_ai = line_score(board, parameters->size, parameters->len, x, y, parameters->ai, ctx);
+            int score_pl = line_score(board, parameters->size, parameters->len, x, y, parameters->player, ctx);
+            int sc = forAI ? score_ai - (score_pl / 2) : score_pl - (score_ai / 2);
+            sc += neighbors * 1000;
+
+            best_move_push(out, x, y, sc, K);
+        }
+    }
+}
+
 // поиск выигрышных ходов
 bool find_immediate_move(Table* board, base* parameters, bounds* bbox, bool forAI, long long* bx, long long* by, GameContext* ctx) {
     best_move cand;
@@ -499,22 +442,25 @@ bool find_immediate_move(Table* board, base* parameters, bounds* bbox, bool forA
     return false;
 }
 
-// функция для проверки соседних клеток вокруг последнего хода игрока
+// Функция для проверки соседних клеток вокруг последнего хода игрока
 bool find_adjacent_move(Table* board, base* parameters, bounds* bbox, long long* bx, long long* by, GameContext* ctx) {
     if (parameters->last_pl_x == LLONG_MAX || parameters->last_pl_y == LLONG_MAX)
         return false;
 
+    // Проверяем все 8 соседних клеток
     int directions[8][2] = { {-1,0}, {1,0}, {0,-1}, {0,1}, {-1,1}, {1,-1}, {1,1}, {-1,-1} };
 
     for (int i = 0; i < 8; i++) {
         long long nx = parameters->last_pl_x + directions[i][0];
         long long ny = parameters->last_pl_y + directions[i][1];
 
+        // Проверяем, находится ли клетка в пределах поля (для ограниченного поля)
         if (parameters->infinite_field == 0 &&
             (nx < 0 || nx >= parameters->size || ny < 0 || ny >= parameters->size)) {
             continue;
         }
 
+        // Проверяем, свободна ли клетка
         if (get_value(board, nx, ny, parameters->size, ctx) == '.') {
             *bx = nx;
             *by = ny;
@@ -523,6 +469,7 @@ bool find_adjacent_move(Table* board, base* parameters, bounds* bbox, long long*
     }
     return false;
 }
+
 
 // минимакс
 int minimax(Table* board, base* parameters, bounds* bbox, bool isMax, int alpha, int beta, short depth, GameContext* ctx) {
@@ -602,59 +549,13 @@ int minimax(Table* board, base* parameters, bounds* bbox, bool isMax, int alpha,
     }
 }
 
-bool quick_check_win(Table* board, unsigned long long size, unsigned long long len,
-    long long x, long long y, char s, GameContext* ctx) {
-    short D[4][2] = { {1,0},{0,1},{1,1},{1,-1} };
-
-    for (int d = 0; d < 4; ++d) {
-        int dx = D[d][0], dy = D[d][1];
-        unsigned long long count = 1;
-
-        //Проверяем только len клеток в каждом направлении
-        for (int k = 1; k < len; ++k) {
-            char val = get_value(board, x + dx * k, y + dy * k, size, ctx);
-            if (val != s) break;
-            count++;
-        }
-
-        for (int k = 1; k < len; ++k) {
-            char val = get_value(board, x - dx * k, y - dy * k, size, ctx);
-            if (val != s) break;
-            count++;
-        }
-
-        if (count >= len) return true;
-    }
-
-    return false;
-}
-
-
-//оценка позиции
-int fast_eval(Table* board, base* parameters, bounds* bbox, GameContext* ctx) {
-    if (!bbox->initialized) return 0;
-
-    int score = 0;
-    //Провер только ключевые клетки вокруг занятых
-    for (long long y = bbox->miny - 1; y <= bbox->maxy + 1; y++) {
-        for (long long x = bbox->minx - 1; x <= bbox->maxx + 1; x++) {
-            char cell = get_value(board, x, y, parameters->size, ctx);
-            if (cell == parameters->ai) score += 10;
-            else if (cell == parameters->player) score -= 10;
-        }
-    }
-    return score;
-}
-
-
-
 void minimax_move(Table* board, base* parameters, bounds* bbox, GameContext* ctx) {
     long long bx, by;
     if (find_immediate_move(board, parameters, bbox, true, &bx, &by, ctx)) {
         insert(board, bx, by, parameters->ai);
         bbox_on_place(bbox, bx, by);
         parameters->last_ai_x = bx;
-        parameters->last_ai_y = by; 
+        parameters->last_ai_y = by;
         return;
     }
     if (find_immediate_move(board, parameters, bbox, false, &bx, &by, ctx)) {
@@ -714,16 +615,424 @@ void minimax_move(Table* board, base* parameters, bounds* bbox, GameContext* ctx
         insert(board, bestX, bestY, parameters->ai);
         bbox_on_place(bbox, bestX, bestY);
         parameters->last_ai_x = bestX;
-        parameters->last_ai_y = bestY;  
+        parameters->last_ai_y = bestY;
     }
 }
 
-void easy_ai_move(Table* board, base* parameters, bounds* bbox, GameContext* ctx) {
+
+// когда игрок может выиграть след ходом
+bool find_critical_threat(GameContext* ctx, long long* bx, long long* by) {
+    int directions[8][2] = {
+        {0, 1}, {1, 0}, {1, 1}, {1, -1},
+        {0, -1}, {-1, 0}, {-1, -1}, {-1, 1}
+    };
+
+    // проверяем угрозы разной длины
+    for (int threatLength = ctx->parameters.len - 1; threatLength >= 2; threatLength--) {
+        for (int dir = 0; dir < 8; dir++) {
+            int deltaRow = directions[dir][0];
+            int deltaCol = directions[dir][1];
+
+            // проверяем все возможные линии
+            for (long long i = ctx->bbox.minx - 2; i <= ctx->bbox.maxx + 2; i++) {
+                for (long long j = ctx->bbox.miny - 2; j <= ctx->bbox.maxy + 2; j++) {
+                    int playerCount = 0;
+                    int emptyCount = 0;
+                    long long emptyRow = -1, emptyCol = -1;
+                    int valid = 1;
+
+                    // проверяем линию длиной выигрыша
+                    for (int k = 0; k < ctx->parameters.len; k++) {
+                        long long row = i + k * deltaRow;
+                        long long col = j + k * deltaCol;
+
+                        if (ctx->parameters.infinite_field == 0 &&
+                            (row < 0 || row >= ctx->parameters.size ||
+                                col < 0 || col >= ctx->parameters.size)) {
+                            valid = 0;
+                            break;
+                        }
+
+                        char val = get_value(ctx->board, row, col, ctx->parameters.size, ctx);
+
+                        if (val == ctx->parameters.player) {
+                            playerCount++;
+                        }
+                        else if (val == '.') {
+                            emptyCount++;
+                            emptyRow = row;
+                            emptyCol = col;
+                        }
+                        else if (val == ctx->parameters.ai) {
+                            valid = 0;
+                            break;
+                        }
+                    }
+
+                    //игрок может выиграть следующим ходом
+                    if (valid && playerCount >= threatLength && emptyCount == 1) {
+                        //проверяем, что клетка действительно пустая
+                        if (get_value(ctx->board, emptyRow, emptyCol, ctx->parameters.size, ctx) == '.') {
+                            *bx = emptyRow;
+                            *by = emptyCol;
+                            return true;
+                        }
+                    }
+                }
+            }
+        }
+    }
+    return false;
+}
+
+//поиск и блокировка последовательностей из 2+ крестиков
+bool find_and_block_sequences(GameContext* ctx, long long* bx, long long* by) {
+    int directions[8][2] = {
+        {0,1}, {1,0}, {1,1}, {1,-1}, {0,-1}, {-1,0}, {-1,-1}, {-1,1}
+    };
+
+    //сначала ищем самые длинные последовательности
+    for (int targetLength = ctx->parameters.len - 1; targetLength >= 2; targetLength--) {
+        for (int dir = 0; dir < 8; dir++) {
+            int deltaRow = directions[dir][0];
+            int deltaCol = directions[dir][1];
+
+            //проверяем в области вокруг занятых клеток
+            for (long long i = ctx->bbox.minx - 2; i <= ctx->bbox.maxx + 2; i++) {
+                for (long long j = ctx->bbox.miny - 2; j <= ctx->bbox.maxy + 2; j++) {
+                    long long row = i, col = j;
+                    int count = 0;
+                    int emptyFound = 0;
+                    long long emptyRow = -1, emptyCol = -1;
+                    while (1) {
+                        //проверяем границы для ограниченного поля
+                        if (ctx->parameters.infinite_field == 0 &&
+                            (row < 0 || row >= ctx->parameters.size ||
+                                col < 0 || col >= ctx->parameters.size)) {
+                            break;
+                        }
+
+                        char val = get_value(ctx->board, row, col, ctx->parameters.size, ctx);
+
+                        if (val == ctx->parameters.player) {
+                            count++;
+                        }
+                        else if (val == '.' && !emptyFound) {
+                            emptyFound = 1;
+                            emptyRow = row;
+                            emptyCol = col;
+                        }
+                        else {
+                            break;
+                        }
+
+                        if (count >= targetLength && emptyFound) {
+                            if (get_value(ctx->board, emptyRow, emptyCol, ctx->parameters.size, ctx) == '.') {
+                                *bx = emptyRow;
+                                *by = emptyCol;
+                                return true;
+                            }
+                        }
+
+                        row += deltaRow;
+                        col += deltaCol;
+                    }
+                }
+            }
+        }
+    }
+
+    return false;
+}
+
+//улучшенный поиск ходов рядом с фигурами игрока
+bool find_move_near_player(GameContext* ctx, long long* bx, long long* by) {
+    int directions[8][2] = {
+        {-1, -1}, {-1, 0}, {-1, 1},
+        {0, -1},           {0, 1},
+        {1, -1},  {1, 0},  {1, 1}
+    };
+
+    //cначала ищем позиции, которые находятся МЕЖДУ двумя фигурами игрока
+    for (long long i = ctx->bbox.minx - 2; i <= ctx->bbox.maxx + 2; i++) {
+        for (long long j = ctx->bbox.miny - 2; j <= ctx->bbox.maxy + 2; j++) {
+            if (get_value(ctx->board, i, j, ctx->parameters.size, ctx) != '.') {
+                continue;
+            }
+
+            int playerPairs = 0;
+            for (int dir1 = 0; dir1 < 8; dir1++) {
+                long long row1 = i + directions[dir1][0];
+                long long col1 = j + directions[dir1][1];
+
+                int oppositeDir = (dir1 + 4) % 8;
+                long long row2 = i + directions[oppositeDir][0];
+                long long col2 = j + directions[oppositeDir][1];
+
+                if (ctx->parameters.infinite_field == 0) {
+                    if (row1 < 0 || row1 >= ctx->parameters.size || col1 < 0 || col1 >= ctx->parameters.size ||
+                        row2 < 0 || row2 >= ctx->parameters.size || col2 < 0 || col2 >= ctx->parameters.size) {
+                        continue;
+                    }
+                }
+
+                char val1 = get_value(ctx->board, row1, col1, ctx->parameters.size, ctx);
+                char val2 = get_value(ctx->board, row2, col2, ctx->parameters.size, ctx);
+
+                if (val1 == ctx->parameters.player && val2 == ctx->parameters.player) {
+                    playerPairs++;
+                }
+            }
+            if (playerPairs > 0) {
+                *bx = i;
+                *by = j;
+                return true;
+            }
+        }
+    }
+    long long bestRow = -1, bestCol = -1;
+    int maxPlayerNeighbors = 0;
+
+    for (long long i = ctx->bbox.minx - 2; i <= ctx->bbox.maxx + 2; i++) {
+        for (long long j = ctx->bbox.miny - 2; j <= ctx->bbox.maxy + 2; j++) {
+            if (get_value(ctx->board, i, j, ctx->parameters.size, ctx) != '.') {
+                continue;
+            }
+
+            int playerNeighbors = 0;
+
+            for (int dir = 0; dir < 8; dir++) {
+                long long newRow = i + directions[dir][0];
+                long long newCol = j + directions[dir][1];
+
+                if (ctx->parameters.infinite_field == 0 &&
+                    (newRow < 0 || newRow >= ctx->parameters.size ||
+                        newCol < 0 || newCol >= ctx->parameters.size)) {
+                    continue;
+                }
+
+                char val = get_value(ctx->board, newRow, newCol, ctx->parameters.size, ctx);
+                if (val == ctx->parameters.player) {
+                    playerNeighbors++;
+                }
+            }
+
+            if (playerNeighbors > maxPlayerNeighbors && playerNeighbors > 0) {
+                maxPlayerNeighbors = playerNeighbors;
+                bestRow = i;
+                bestCol = j;
+            }
+        }
+    }
+
+    if (maxPlayerNeighbors >= 1 && bestRow != -1) {
+        *bx = bestRow;
+        *by = bestCol;
+        return true;
+    }
+
+    return false;
+}
+
+//оценка эффективности блокирующего хода
+int evaluate_blocking_move(GameContext* ctx, long long row, long long col) {
+    int score = 0;
+    int directions[8][2] = {
+        {0,1}, {1,0}, {1,1}, {1,-1}, {0,-1}, {-1,0}, {-1,-1}, {-1,1}
+    };
+
+    for (int dir = 0; dir < 8; dir++) {
+        int deltaRow = directions[dir][0];
+        int deltaCol = directions[dir][1];
+
+        int playerSequenceLength = 0;
+        int canBlock = 1;
+
+        for (int dist = 1; dist < ctx->parameters.len; dist++) {
+            long long newRow = row + dist * deltaRow;
+            long long newCol = col + dist * deltaCol;
+            if (ctx->parameters.infinite_field == 0 &&
+                (newRow < 0 || newRow >= ctx->parameters.size ||
+                    newCol < 0 || newCol >= ctx->parameters.size)) {
+                break;
+            }
+
+            char val = get_value(ctx->board, newRow, newCol, ctx->parameters.size, ctx);
+            if (val == ctx->parameters.player) {
+                playerSequenceLength++;
+            }
+            else if (val == ctx->parameters.ai) {
+                canBlock = 0; 
+                break;
+            }
+            else if (val != '.') {
+                break;
+            }
+        }
+
+        for (int dist = 1; dist < ctx->parameters.len; dist++) {
+            long long newRow = row - dist * deltaRow;
+            long long newCol = col - dist * deltaCol;
+
+            if (ctx->parameters.infinite_field == 0 &&
+                (newRow < 0 || newRow >= ctx->parameters.size ||
+                    newCol < 0 || newCol >= ctx->parameters.size)) {
+                break;
+            }
+
+            char val = get_value(ctx->board, newRow, newCol, ctx->parameters.size, ctx);
+            if (val == ctx->parameters.player) {
+                playerSequenceLength++;
+            }
+            else if (val == ctx->parameters.ai) {
+                canBlock = 0;
+                break;
+            }
+            else if (val != '.') {
+                break;
+            }
+        }
+
+        if (canBlock && playerSequenceLength > 0) {
+            score += playerSequenceLength * playerSequenceLength * 10;
+        }
+    }
+
+    int adjacentPlayers = 0;
+    for (int dir = 0; dir < 8; dir++) {
+        long long newRow = row + directions[dir][0];
+        long long newCol = col + directions[dir][1];
+
+     
+        if (ctx->parameters.infinite_field == 0 &&
+            (newRow < 0 || newRow >= ctx->parameters.size ||
+                newCol < 0 || newCol >= ctx->parameters.size)) {
+            continue;
+        }
+
+        char val = get_value(ctx->board, newRow, newCol, ctx->parameters.size, ctx);
+        if (val == ctx->parameters.player) {
+            adjacentPlayers++;
+        }
+    }
+    score += adjacentPlayers * 5;
+
+    if (adjacentPlayers == 0 && ctx->parameters.infinite_field == 0) {
+        if ((row == 0 || row == ctx->parameters.size - 1) &&
+            (col == 0 || col == ctx->parameters.size - 1)) {
+            score -= 20;
+        }
+        else if (row == 0 || row == ctx->parameters.size - 1 ||
+            col == 0 || col == ctx->parameters.size - 1) {
+            score -= 10; 
+        }
+    }
+
+    if (ctx->parameters.infinite_field == 0 && ctx->parameters.size >= 5) {
+        long long center = ctx->parameters.size / 2;
+        long long distanceFromCenter = llabs(row - center) + llabs(col - center);
+        score += (ctx->parameters.size - distanceFromCenter) * 2;
+    }
+    else if (ctx->parameters.infinite_field == 1) {
+        long long distanceFromOrigin = llabs(row) + llabs(col);
+        score -= distanceFromOrigin * 2; 
+    }
+
+    return score;
+}
+
+//поиск лучшей позиции блокировки
+bool find_best_blocking_position(GameContext* ctx, long long* bx, long long* by) {
+    long long criticalRow, criticalCol;
+    if (find_critical_threat(ctx, &criticalRow, &criticalCol)) {
+        *bx = criticalRow;
+        *by = criticalCol;
+        return true;
+    }
+
+    long long bestRow = -1, bestCol = -1;
+    int bestScore = INT_MIN;
+
+    for (long long i = ctx->bbox.minx - 2; i <= ctx->bbox.maxx + 2; i++) {
+        for (long long j = ctx->bbox.miny - 2; j <= ctx->bbox.maxy + 2; j++) {
+            if (ctx->parameters.infinite_field == 0 &&
+                (i < 0 || i >= ctx->parameters.size ||
+                    j < 0 || j >= ctx->parameters.size)) {
+                continue;
+            }
+
+            if (get_value(ctx->board, i, j, ctx->parameters.size, ctx) != '.') {
+                continue;
+            }
+
+            int score = evaluate_blocking_move(ctx, i, j);
+
+            if (ctx->parameters.infinite_field == 0) {
+                long long center = ctx->parameters.size / 2;
+                long long distance = llabs(i - center) + llabs(j - center);
+                score += (ctx->parameters.size - distance);
+            }
+
+            if (score > bestScore) {
+                bestScore = score;
+                bestRow = i;
+                bestCol = j;
+            }
+        }
+    }
+
+    if (bestRow != -1 && bestCol != -1) {
+        *bx = bestRow;
+        *by = bestCol;
+        return true;
+    }
+
+    return false;
+}
+
+//для харда и эксперта
+void new_computer_move(GameContext* ctx) {
+    long long bx, by;
+
+    if (find_critical_threat(ctx, &bx, &by)) {
+        insert(ctx->board, bx, by, ctx->parameters.ai);
+        bbox_on_place(&ctx->bbox, bx, by);
+        ctx->parameters.last_ai_x = bx;
+        ctx->parameters.last_ai_y = by;
+        return;
+    }
+
+    if (find_and_block_sequences(ctx, &bx, &by)) {
+        insert(ctx->board, bx, by, ctx->parameters.ai);
+        bbox_on_place(&ctx->bbox, bx, by);
+        ctx->parameters.last_ai_x = bx;
+        ctx->parameters.last_ai_y = by;
+        return;
+    }
+
+    if (find_move_near_player(ctx, &bx, &by)) {
+        insert(ctx->board, bx, by, ctx->parameters.ai);
+        bbox_on_place(&ctx->bbox, bx, by);
+        ctx->parameters.last_ai_x = bx;
+        ctx->parameters.last_ai_y = by;
+        return;
+    }
+
+    if (ctx->parameters.difficulty == 3) {
+        ctx->parameters.depth =6;
+    }
+    if (ctx->parameters.difficulty == 4) {
+        ctx->parameters.depth = 10;
+    }
+    minimax_move(ctx->board, &ctx->parameters, &ctx->bbox, ctx);
+}
+
+void easy_move(Table* board, base* parameters, bounds* bbox, GameContext* ctx) {
     best_move cand;
     generate_candidates(board, parameters, bbox, true, 64, &cand, ctx);
 
     if (cand.n > 0) {
-        // Рандомный выбор из доступных ходов
+        //рандомный выбор из доступных ходов
         int random_index = rand() % cand.n;
         long long x = cand.x[random_index];
         long long y = cand.y[random_index];
@@ -735,10 +1044,11 @@ void easy_ai_move(Table* board, base* parameters, bounds* bbox, GameContext* ctx
     }
 }
 
-void medium_minimax_move(Table* board, base* parameters, bounds* bbox, GameContext* ctx) {
+
+void medium_move(Table* board, base* parameters, bounds* bbox, GameContext* ctx) {
     long long bx, by;
 
-    //Проверка выигрышных ходов
+    //проверка выигрышных ходов
     if (find_immediate_move(board, parameters, bbox, true, &bx, &by, ctx) ||
         find_immediate_move(board, parameters, bbox, false, &bx, &by, ctx)) {
         insert(board, bx, by, parameters->ai);
@@ -747,13 +1057,10 @@ void medium_minimax_move(Table* board, base* parameters, bounds* bbox, GameConte
         parameters->last_ai_y = by;
         return;
     }
-
-    //Эвристический выбор лучшего хода без глубокого поиска
     best_move cand;
-    generate_candidates(board, parameters, bbox, true, 16, &cand, ctx); // меньше кандидатов
+    generate_candidates(board, parameters, bbox, true, 16, &cand, ctx); 
 
     if (cand.n > 0) {
-        //Выбираем лучший ход по эвристике
         insert(board, cand.x[0], cand.y[0], parameters->ai);
         bbox_on_place(bbox, cand.x[0], cand.y[0]);
         parameters->last_ai_x = cand.x[0];
@@ -761,83 +1068,20 @@ void medium_minimax_move(Table* board, base* parameters, bounds* bbox, GameConte
     }
 }
 
-void hard_ai_move(Table* board, base* parameters, bounds* bbox, GameContext* ctx) {
-    long long bx, by;
 
-    //Проверка выигрышного хода для ИИ
-    if (find_immediate_move(board, parameters, bbox, true, &bx, &by, ctx)) {
-        insert(board, bx, by, parameters->ai);
-        bbox_on_place(bbox, bx, by);
-        parameters->last_ai_x = bx;
-        parameters->last_ai_y = by;
-        return;
-    }
-
-    //Проверка выигрышного хода для игрока (блокировка)
-    if (find_immediate_move(board, parameters, bbox, false, &bx, &by, ctx)) {
-        insert(board, bx, by, parameters->ai);
-        bbox_on_place(bbox, bx, by);
-        parameters->last_ai_x = bx;
-        parameters->last_ai_y = by;
-        return;
-    }
-
-    //Если нет срочных ходов используем мини-макс с меньшей глубиной
-    medium_minimax_move(board, parameters, bbox, ctx); // глубина 2 для скорости
-}
-
-
-void expert_ai_move(Table* board, base* parameters, bounds* bbox, GameContext* ctx) {
-    long long bx, by;
-
-    // cначала ищем ход для блокировки игрока (приоритет)
-    if (find_immediate_move(board, parameters, bbox, false, &bx, &by, ctx)) {
-        insert(board, bx, by, parameters->ai);
-        bbox_on_place(bbox, bx, by);
-        parameters->last_ai_x = bx;
-        parameters->last_ai_y = by;
-        return;
-    }
-
-    // ищем свой выигрышный ход
-    if (find_immediate_move(board, parameters, bbox, true, &bx, &by, ctx)) {
-        insert(board, bx, by, parameters->ai);
-        bbox_on_place(bbox, bx, by);
-        parameters->last_ai_x = bx;
-        parameters->last_ai_y = by;
-        return;
-    }
-
-    //Если нет, то используем продвинутый мини-макс
-    medium_minimax_move(board, parameters, bbox, ctx);
-}
-
-
-/*-------------Реализация сохранения и загрузки-------------*/
-
-// сброс сохраненной игры
-bool reset_saved_game() {
-    FILE* file = fopen("save.dat", "rb");
-    if (file) {
-        fclose(file);
-        // если файл существует, удаляем его
-        if (remove("save.dat") == 0) {
-            return true;
-        }
-    }
-    return false; // файла не существует или не удалось удалить
-}
-
+//////////////////////////////////////////////////////////////////////////////////////////////////////
+// Save and load game
 void save_game(GameContext* ctx) {
     FILE* file = fopen("save.dat", "wb");
     if (file) {
-        // записывает данные игры
+        // Сохраняем параметры и границы
         fwrite(&ctx->parameters, sizeof(base), 1, file);
         fwrite(&ctx->bbox, sizeof(bounds), 1, file);
 
+        // Сохраняем количество ходов
         fwrite(&ctx->parameters.count_moves, sizeof(unsigned long long), 1, file);
 
-        // записывает каждый узел
+        // Сохраняем все клетки
         for (unsigned long long i = 0; i < ctx->board->capacity; i++) {
             Node* current = ctx->board->buckets[i];
             while (current) {
@@ -852,7 +1096,7 @@ void save_game(GameContext* ctx) {
 bool load_game(GameContext* ctx) {
     FILE* file = fopen("save.dat", "rb");
     if (file) {
-        // очищаем текущую доску
+        // Очищаем текущую доску
         for (unsigned long long i = 0; i < ctx->board->capacity; i++) {
             Node* current = ctx->board->buckets[i];
             while (current) {
@@ -863,7 +1107,7 @@ bool load_game(GameContext* ctx) {
             ctx->board->buckets[i] = NULL;
         }
 
-        // читаем параметры и границы
+        // Читаем параметры и границы
         if (fread(&ctx->parameters, sizeof(base), 1, file) != 1) {
             fclose(file);
             return false;
@@ -873,7 +1117,7 @@ bool load_game(GameContext* ctx) {
             return false;
         }
 
-        // читаем количество ходов
+        // Читаем количество ходов
         unsigned long long count_moves;
         if (fread(&count_moves, sizeof(unsigned long long), 1, file) != 1) {
             fclose(file);
@@ -881,7 +1125,7 @@ bool load_game(GameContext* ctx) {
         }
         ctx->parameters.count_moves = count_moves;
 
-        // читаем клетки
+        // Читаем клетки
         Node node;
         while (fread(&node, sizeof(Node), 1, file) == 1) {
             insert(ctx->board, node.x, node.y, node.value);
@@ -893,22 +1137,19 @@ bool load_game(GameContext* ctx) {
     }
     return false;
 }
-
-/*-------------Рендеринг-------------*/
-
+// Graphics functions
 void drawcircle(float center_x, float center_y, float radius) {
-    int segments = 45; // количество отрезков из которых состоит окружность.
-    glColor3f(0.0f, 0.0f, 1.0f); // синий
-    glLineWidth(3.0f); // тощина линии 3 пикселя
-    glBegin(GL_LINE_LOOP); // начало рисования линии
+    int segments = 45;
+    glColor3f(0.0f, 0.0f, 1.0f);
+    glLineWidth(3.0f);
+    glBegin(GL_LINE_LOOP);
     for (int i = 0; i < segments; i++) {
-        float angle = 2.0f * 3.1415926f * (float)i / (float)segments; // угол
-        glVertex2f(center_x + radius * cosf(angle), center_y + radius * sinf(angle)); // определение вершины
+        float angle = 2.0f * 3.1415926f * (float)i / (float)segments;
+        glVertex2f(center_x + radius * cosf(angle), center_y + radius * sinf(angle));
     }
-    glEnd(); // завершение рисования
+    glEnd();
 }
 
-// крестик
 void drawcross(float x, float y) {
     glColor3f(0.0f, 0.5f, 1.0f);
     glLineWidth(5.0f);
@@ -921,10 +1162,10 @@ void drawcross(float x, float y) {
 }
 
 void drawchar(char c, float x, float y, float scale) {
-    glPushMatrix(); // сохраняет текущую систему координат в стек
-    glTranslatef(x, y, 0); // смещение для отрисовки, чтобы (0,0) был в точке (x,y) где нужно рисовать символ
-    glScalef(scale, scale, 1.0f); // масштабирование символа
-    switch (toupper(c)) { // отрисовка каждого символа
+    glPushMatrix();
+    glTranslatef(x, y, 0); // Смещение для отрисовки
+    glScalef(scale, scale, 1.0f); // Масштабирование символа
+    switch (toupper(c)) { // Отрисовка каждого символа
     case 'S':
         glBegin(GL_LINE_STRIP);
         glVertex2f(13, 2); glVertex2f(2, 2);
@@ -1056,11 +1297,11 @@ void drawchar(char c, float x, float y, float scale) {
         break;
     case 'Y':
         glBegin(GL_LINE_STRIP);
-        glVertex2f(2, 1); glVertex2f(7.5f, 10); // левая часть V (сверху вниз)
-        glVertex2f(13, 1); // правая часть V
+        glVertex2f(2, 1); glVertex2f(7.5f, 10); // Левая часть V (сверху вниз)
+        glVertex2f(13, 1); // Правая часть V
         glEnd();
         glBegin(GL_LINES);
-        glVertex2f(7.5f, 10); glVertex2f(7.5f, 20); // стержень (вниз)
+        glVertex2f(7.5f, 10); glVertex2f(7.5f, 20); // Стержень (вниз)
         glEnd();
         break;
     case 'X':
@@ -1071,11 +1312,11 @@ void drawchar(char c, float x, float y, float scale) {
         break;
     case 'M':
         glBegin(GL_LINE_STRIP);
-        glVertex2f(2, 20);    // левая верхняя точка
-        glVertex2f(2, 2);     // левая нижняя точка
-        glVertex2f(7, 12);    // первый центральный изгиб (вверх)
-        glVertex2f(12, 2);    // правая нижняя точка
-        glVertex2f(12, 20);   // правая верхняя точка
+        glVertex2f(2, 20);    // Левая верхняя точка
+        glVertex2f(2, 2);     // Левая нижняя точка
+        glVertex2f(7, 12);    // Первый центральный изгиб (вверх)
+        glVertex2f(12, 2);    // Правая нижняя точка
+        glVertex2f(12, 20);   // Правая верхняя точка
         glEnd();
         break;
     case 'U':
@@ -1111,20 +1352,20 @@ void drawchar(char c, float x, float y, float scale) {
         break;
     case 'V':
         glBegin(GL_LINE_STRIP);
-        glVertex2f(2, 2);    // левая верхняя точка
-        glVertex2f(7.5f, 19); // центральная нижняя точка
-        glVertex2f(13, 2);   // правая верхняя точка
+        glVertex2f(2, 2);    // Левая верхняя точка
+        glVertex2f(7.5f, 19); // Центральная нижняя точка
+        glVertex2f(13, 2);   // Правая верхняя точка
         glEnd();
         break;
     case 'Q':
-        // основной круг
+        // Основной круг
         glBegin(GL_LINE_LOOP);
         glVertex2f(5, 2); glVertex2f(10, 2);
         glVertex2f(13, 5); glVertex2f(13, 15);
         glVertex2f(10, 19); glVertex2f(5, 19);
         glVertex2f(2, 15); glVertex2f(2, 5);
         glEnd();
-        // хвостик буквы Q
+        // Хвостик буквы Q
         glBegin(GL_LINES);
         glVertex2f(9, 12); glVertex2f(14, 20);
         glEnd();
@@ -1142,31 +1383,31 @@ void drawchar(char c, float x, float y, float scale) {
         break;
     case '0':
         glBegin(GL_LINE_LOOP);
-        glVertex2f(5, 18); glVertex2f(10, 18); // верхняя линия
-        glVertex2f(13, 15); glVertex2f(13, 5); // правая сторона
-        glVertex2f(10, 1); glVertex2f(5, 1); // нижняя линия
-        glVertex2f(2, 5); glVertex2f(2, 15); // левая сторона
+        glVertex2f(5, 18); glVertex2f(10, 18); // Верхняя линия
+        glVertex2f(13, 15); glVertex2f(13, 5); // Правая сторона
+        glVertex2f(10, 1); glVertex2f(5, 1); // Нижняя линия
+        glVertex2f(2, 5); glVertex2f(2, 15); // Левая сторона
         glEnd();
         break;
     case '1':
         glBegin(GL_LINES);
-        glVertex2f(7.5f, 18); glVertex2f(7.5f, 0); // вертикальная линия
-        glVertex2f(5, 18); glVertex2f(10, 18); // верхняя перекладина
-        glVertex2f(5, 0); glVertex2f(10, 0); // вижняя перекладина
+        glVertex2f(7.5f, 18); glVertex2f(7.5f, 0); // Вертикальная линия
+        glVertex2f(5, 18); glVertex2f(10, 18); // Верхняя перекладина
+        glVertex2f(5, 0); glVertex2f(10, 0); // Нижняя перекладина
         glEnd();
         break;
     case '2':
         glBegin(GL_LINE_STRIP);
-        glVertex2f(13, 18); glVertex2f(2, 18); // верхняя линия
-        glVertex2f(2, 10); glVertex2f(13, 10); // средняя линия
-        glVertex2f(13, 1); glVertex2f(2, 1); // ижняя линия
+        glVertex2f(13, 18); glVertex2f(2, 18); // Верхняя линия
+        glVertex2f(2, 10); glVertex2f(13, 10); // Средняя линия
+        glVertex2f(13, 1); glVertex2f(2, 1); // Нижняя линия
         glEnd();
         break;
     case '3':
         glBegin(GL_LINE_STRIP);
-        glVertex2f(2, 18); glVertex2f(13, 18); // верхняя линия
-        glVertex2f(13, 10); glVertex2f(2, 10); // вредняя линия
-        glVertex2f(13, 1); glVertex2f(2, 1); // нижняя линия
+        glVertex2f(2, 18); glVertex2f(13, 18); // Верхняя линия
+        glVertex2f(13, 10); glVertex2f(2, 10); // Средняя линия
+        glVertex2f(13, 1); glVertex2f(2, 1); // Нижняя линия
         glEnd();
         break;
     case '4':
@@ -1177,16 +1418,16 @@ void drawchar(char c, float x, float y, float scale) {
         break;
     case '5':
         glBegin(GL_LINE_STRIP);
-        glVertex2f(1, 18); glVertex2f(14, 18); // верхняя линия
-        glVertex2f(14, 10); glVertex2f(1, 10); // средняя линия
-        glVertex2f(1, 1); glVertex2f(14, 1); // нижняя линия
+        glVertex2f(1, 18); glVertex2f(14, 18); // Верхняя линия
+        glVertex2f(14, 10); glVertex2f(1, 10); // Средняя линия
+        glVertex2f(1, 1); glVertex2f(14, 1); // Нижняя линия
         glEnd();
         break;
     case '6':
         glBegin(GL_LINE_STRIP);
-        glVertex2f(1, 18); glVertex2f(14, 18); // верхняя линия
-        glVertex2f(14, 10); glVertex2f(1, 10); // средняя линия
-        glVertex2f(1, 1); glVertex2f(14, 1); // нижняя линия
+        glVertex2f(1, 18); glVertex2f(14, 18); // Верхняя линия
+        glVertex2f(14, 10); glVertex2f(1, 10); // Средняя линия
+        glVertex2f(1, 1); glVertex2f(14, 1); // Нижняя линия
         glEnd();
         glBegin(GL_LINES);
         glVertex2f(1, 18);  glVertex2f(1, 10);
@@ -1194,29 +1435,29 @@ void drawchar(char c, float x, float y, float scale) {
         break;
     case '7':
         glBegin(GL_LINE_STRIP);
-        glVertex2f(1, 1); glVertex2f(14, 1); // верхняя линия
-        glVertex2f(1, 19); // диагональ
+        glVertex2f(1, 1); glVertex2f(14, 1); // Верхняя линия
+        glVertex2f(1, 19); // Диагональ
         glEnd();
         break;
     case '8':
         glBegin(GL_LINE_LOOP);
-        glVertex2f(5, 18); glVertex2f(10, 18); // верхняя линия (верхний контур)
-        glVertex2f(13, 15); glVertex2f(13, 13); // правая сторона (верхний контур)
-        glVertex2f(10, 10); glVertex2f(5, 10); // средняя линия
-        glVertex2f(2, 13); glVertex2f(2, 15); // левая сторона (верхний контур)
+        glVertex2f(5, 18); glVertex2f(10, 18); // Верхняя линия (верхний контур)
+        glVertex2f(13, 15); glVertex2f(13, 13); // Правая сторона (верхний контур)
+        glVertex2f(10, 10); glVertex2f(5, 10); // Средняя линия
+        glVertex2f(2, 13); glVertex2f(2, 15); // Левая сторона (верхний контур)
         glEnd();
         glBegin(GL_LINE_LOOP);
-        glVertex2f(5, 10); glVertex2f(10, 10); // верхняя линия (нижний контур)
-        glVertex2f(13, 7); glVertex2f(13, 5); // правая сторона (нижний контур)
-        glVertex2f(10, 1); glVertex2f(5, 1); // нижняя линия
-        glVertex2f(2, 5); glVertex2f(2, 7); // левая сторона (нижний контур)
+        glVertex2f(5, 10); glVertex2f(10, 10); // Верхняя линия (нижний контур)
+        glVertex2f(13, 7); glVertex2f(13, 5); // Правая сторона (нижний контур)
+        glVertex2f(10, 1); glVertex2f(5, 1); // Нижняя линия
+        glVertex2f(2, 5); glVertex2f(2, 7); // Левая сторона (нижний контур)
         glEnd();
         break;
     case '9':
         glBegin(GL_LINE_STRIP);
-        glVertex2f(1, 18); glVertex2f(14, 18); // верхняя линия
-        glVertex2f(14, 10); glVertex2f(1, 10); // средняя линия
-        glVertex2f(1, 1); glVertex2f(14, 1); // нижняя линия
+        glVertex2f(1, 18); glVertex2f(14, 18); // Верхняя линия
+        glVertex2f(14, 10); glVertex2f(1, 10); // Средняя линия
+        glVertex2f(1, 1); glVertex2f(14, 1); // Нижняя линия
         glVertex2f(14, 18);
         glEnd();
         break;
@@ -1229,30 +1470,23 @@ void drawchar(char c, float x, float y, float scale) {
         break;
     case '/':
         glBegin(GL_LINES);
-        glVertex2f(13, 2);   // правая верхняя точка
-        glVertex2f(2, 19);   // левая нижняя точка
+        glVertex2f(13, 2);   // Правая верхняя точка
+        glVertex2f(2, 19);   // Левая нижняя точка
         glEnd();
         break;
     }
 
 
-    glPopMatrix(); // восстанавливает предыдущую систему координат
+    glPopMatrix();
 }
 
-// рендеринг
 void drawtext(GameContext* ctx, const char* text, float x, float y, float scale) {
     float total_width = 0;
-
-    // вычисление общей шири ны текста
     for (const char* c = text; *c != '\0'; c++) {
         total_width += (*c == ' ') ? 15 * scale : ctx->char_width * scale;
     }
-
-    // вычисление начальной позиции (центрирование)
     float start_x = x - total_width / 2;
     float start_y = y - ctx->char_height / 2 * scale;
-
-    // посимвольная отрисовка
     for (const char* c = text; *c != '\0'; c++) {
         if (*c == ' ') start_x += 15 * scale;
         else {
@@ -1263,7 +1497,6 @@ void drawtext(GameContext* ctx, const char* text, float x, float y, float scale)
 }
 
 void drawbutton(GameContext* ctx, Button btn) {
-    // фон кнопки
     glColor3f(btn.is_mouse ? 0.0f : 0.7f, btn.is_mouse ? 0.5f : 0.7f, btn.is_mouse ? 0.5f : 0.7f);
     glBegin(GL_QUADS);
     glVertex2f(btn.x, btn.y);
@@ -1271,7 +1504,6 @@ void drawbutton(GameContext* ctx, Button btn) {
     glVertex2f(btn.x + btn.width, btn.y + btn.height);
     glVertex2f(btn.x, btn.y + btn.height);
     glEnd();
-    // рамка кнопки
     glColor3f(0.0f, 0.0f, 0.0f);
     glLineWidth(2.0f);
     glBegin(GL_LINE_LOOP);
@@ -1280,20 +1512,17 @@ void drawbutton(GameContext* ctx, Button btn) {
     glVertex2f(btn.x + btn.width, btn.y + btn.height);
     glVertex2f(btn.x, btn.y + btn.height);
     glEnd();
-    // текст кнопки
     drawtext(ctx, btn.text, btn.x + btn.width / 2, btn.y + btn.height / 2, 0.7f);
 }
 
-// сетка
 void drawgrid(GameContext* ctx) {
     glColor3f(0.0f, 0.1f, 0.1f);
     glLineWidth(1.0f);
 
-    // вычиление видимой области
     long long start_x = floor((float)ctx->view_offset_x / CELL_SIZE);
     long long start_y = floor((float)ctx->view_offset_y / CELL_SIZE);
 
-    // отрисовка вертикальных линий
+    // Рисуем сетку для видимой области без ограничений
     for (long long x = start_x; x <= start_x + VISIBLE_CELLS_X + 1; x++) {
         float screen_x = x * CELL_SIZE - ctx->view_offset_x;
         glBegin(GL_LINES);
@@ -1302,7 +1531,6 @@ void drawgrid(GameContext* ctx) {
         glEnd();
     }
 
-    // отрисовка горизонтальных линий
     for (long long y = start_y; y <= start_y + VISIBLE_CELLS_Y + 1; y++) {
         float screen_y = y * CELL_SIZE - ctx->view_offset_y;
         glBegin(GL_LINES);
@@ -1311,7 +1539,7 @@ void drawgrid(GameContext* ctx) {
         glEnd();
     }
 
-    // отрисовываем все видимые клетки без проверки границ
+    // Отрисовываем все видимые клетки без проверки границ
     for (long long x = start_x; x < start_x + VISIBLE_CELLS_X; x++) {
         for (long long y = start_y; y < start_y + VISIBLE_CELLS_Y; y++) {
             float screen_x = x * CELL_SIZE - ctx->view_offset_x;
@@ -1334,7 +1562,7 @@ void drawgrid(GameContext* ctx) {
         }
     }
 
-    // курсор (без проверки границ)
+    // Курсор (без проверки границ)
     float cursor_x = ctx->cursor_x * CELL_SIZE - ctx->view_offset_x;
     float cursor_y = ctx->cursor_y * CELL_SIZE - ctx->view_offset_y;
     glColor3f(1.0f, 0.0f, 1.0f);
@@ -1348,12 +1576,11 @@ void drawgrid(GameContext* ctx) {
 }
 
 void draw_menu(GameContext* ctx) {
-    // очистка экрана и установка фона
     glClear(GL_COLOR_BUFFER_BIT);
     glClearColor(0.9f, 0.9f, 0.9f, 1.0f);
     drawtext(ctx, "TIC TAC TOE", WINDOW_WIDTH / 2, 80, 1.5f);
 
-    // проверяем существует ли сохранение
+    // Проверяем существует ли сохранение
     bool save_exists = false;
     FILE* test_file = fopen("save.dat", "rb");
     if (test_file) {
@@ -1363,7 +1590,7 @@ void draw_menu(GameContext* ctx) {
 
     ctx->start_button.text = save_exists ? "CONTINUE" : "START";
 
-    // располагаем кнопки вертикально с отступами
+    // Располагаем кнопки вертикально с отступами
     ctx->start_button.y = WINDOW_HEIGHT / 2 - 70;
     ctx->settings_button.y = WINDOW_HEIGHT / 2;
     ctx->help_button.y = WINDOW_HEIGHT / 2 + 70;
@@ -1373,16 +1600,19 @@ void draw_menu(GameContext* ctx) {
     drawbutton(ctx, ctx->settings_button);
     drawbutton(ctx, ctx->help_button);
     drawbutton(ctx, ctx->about_button);
+
+
 }
 
+
+
 void draw_help(GameContext* ctx) {
-    // очистка экрана и установка фона
     glClear(GL_COLOR_BUFFER_BIT);
     glClearColor(0.8f, 0.9f, 0.95f, 1.0f);
 
     drawtext(ctx, "GAME HELP", WINDOW_WIDTH / 2, 60, 1.5f);
 
-    // управление в игре
+    // Управление в игре
     glColor3f(0.3f, 0.3f, 0.3f);
     drawtext(ctx, "GAME CONTROLS:", WINDOW_WIDTH / 2, 120, 0.8f);
     glColor3f(0.0f, 0.0f, 0.0f);
@@ -1392,7 +1622,9 @@ void draw_help(GameContext* ctx) {
     drawtext(ctx, "Ctrl+R or F9 - Reset saved game", WINDOW_WIDTH / 2, 210, 0.6f);
     drawtext(ctx, "ESC - return to the menu", WINDOW_WIDTH / 2, 230, 0.6f);
 
-    // главное меню
+
+
+    // Главное меню
     glColor3f(0.3f, 0.3f, 0.3f);
     drawtext(ctx, "MAIN MENU KEYS:", WINDOW_WIDTH / 2, 270, 0.8f);
     glColor3f(0.0f, 0.0f, 0.0f);
@@ -1401,7 +1633,7 @@ void draw_help(GameContext* ctx) {
     drawtext(ctx, "H - open the help", WINDOW_WIDTH / 2, 330, 0.6f);
     drawtext(ctx, "A - open the about", WINDOW_WIDTH / 2, 350, 0.6f);
 
-    // особенности
+    // Особенности
     glColor3f(0.3f, 0.3f, 0.3f);
     drawtext(ctx, "FEATURES:", WINDOW_WIDTH / 2, 390, 0.8f);
     glColor3f(0.0f, 0.0f, 0.0f);
@@ -1409,7 +1641,7 @@ void draw_help(GameContext* ctx) {
     drawtext(ctx, "Support for large boards", WINDOW_WIDTH / 2, 430, 0.6f);
     drawtext(ctx, "Infinite field mode for unlimited gameplay", WINDOW_WIDTH / 2, 450, 0.6f);
 
-    // правила
+    // Правила
     glColor3f(0.3f, 0.3f, 0.3f);
     drawtext(ctx, "RULES:", WINDOW_WIDTH / 2, 490, 0.8f);
     glColor3f(0.0f, 0.0f, 0.0f);
@@ -1420,11 +1652,13 @@ void draw_help(GameContext* ctx) {
 }
 
 void draw_about(GameContext* ctx) {
-    // очистка экрана и установка фона
     glClear(GL_COLOR_BUFFER_BIT);
     glClearColor(0.85f, 0.90f, 0.95f, 1.0f);
 
     drawtext(ctx, "ABOUT", WINDOW_WIDTH / 2, 80, 1.5f);
+
+    // Основная информация
+    //glColor3f(0.0f, 0.0f, 0.0f);
 
     glColor3f(0.8f, 0.7f, 0.2f);
     drawtext(ctx, "AUTHORS:", WINDOW_WIDTH / 2, 140, 0.8f);
@@ -1440,6 +1674,7 @@ void draw_about(GameContext* ctx) {
 
     drawbutton(ctx, ctx->back_button);
 }
+
 
 void get_difficulty_color(int difficulty, float* r, float* g, float* b) {
     switch (difficulty) {
@@ -1465,14 +1700,13 @@ void get_difficulty_color(int difficulty, float* r, float* g, float* b) {
 }
 
 void draw_settings(GameContext* ctx) {
-    // очистка экрана и установка фона
     glClear(GL_COLOR_BUFFER_BIT);
     glClearColor(0.8f, 0.9f, 0.9f, 1.0f);
     drawtext(ctx, "SETTINGS", WINDOW_WIDTH / 2, 90, 1.5f);
 
     char buffer[50];
 
-    // настройка размера поля
+    // BOARD SIZE (белый)
     glColor3f(0.0f, 0.0f, 0.0f);
     if (ctx->parameters.infinite_field == 1) {
         snprintf(buffer, sizeof(buffer), "BOARD SIZE: INFINITY");
@@ -1484,21 +1718,21 @@ void draw_settings(GameContext* ctx) {
     drawbutton(ctx, ctx->size_up_button);
     drawbutton(ctx, ctx->size_down_button);
 
-    // настройка длиня линии
+    // WIN LINE (белый)
     glColor3f(0.0f, 0.0f, 0.0f);
     snprintf(buffer, sizeof(buffer), "WIN LINE: %d", (int)ctx->parameters.len);
     drawtext(ctx, buffer, WINDOW_WIDTH - 200, WINDOW_HEIGHT / 2 - 140, 0.9f);
     drawbutton(ctx, ctx->line_up_button);
     drawbutton(ctx, ctx->line_down_button);
 
-    // настройка первого игрока и его символа
+    // FIRST PLAYER (белый)
     glColor3f(0.0f, 0.0f, 0.0f);
     snprintf(buffer, sizeof(buffer), "FIRST PLAYER: %s",
         ctx->parameters.player_moves_first ? (ctx->parameters.player == 'X' ? "PLAYER X" : "PLAYER O") : (ctx->parameters.ai == 'X' ? "COMPUTER X" : "COMPUTER O"));
     drawtext(ctx, buffer, WINDOW_WIDTH / 2, WINDOW_HEIGHT / 2 - 5, 0.9f);
     drawbutton(ctx, ctx->first_player_button);
 
-    // настройка уровня
+    // DIFFICULTY (разные цвета)
     float r, g, b;
     get_difficulty_color(ctx->parameters.difficulty, &r, &g, &b);
     glColor3f(r, g, b);
@@ -1509,7 +1743,7 @@ void draw_settings(GameContext* ctx) {
     drawtext(ctx, buffer, WINDOW_WIDTH / 2, WINDOW_HEIGHT / 2 + 95, 0.9f);
     drawbutton(ctx, ctx->difficulty_button);
 
-    // настройка бесконечного поля
+    // INFINITE FIELD
     float ri, gi, bi;
     glColor3f(0.0f, 0.0f, 0.0f);
     get_difficulty_color(ctx->parameters.infinite_field, &ri, &gi, &bi);
@@ -1519,6 +1753,8 @@ void draw_settings(GameContext* ctx) {
     drawbutton(ctx, ctx->infinite_field_button);
     drawbutton(ctx, ctx->back_button);
 }
+
+
 
 void draw_game_over(GameContext* ctx) {
     glClear(GL_COLOR_BUFFER_BIT);
@@ -1532,7 +1768,7 @@ void draw_game_over(GameContext* ctx) {
         message = ctx->parameters.ai == 'X' ? "COMPUTER X WINS!" : "COMPUTER O WINS!";
     }
     else if (ctx->winner == 3) {
-        message = "DRAW!"; // сообщение о ничье
+        message = "DRAW!"; // Сообщение о ничье
     }
     else {
         message = "GAME OVER";
@@ -1542,6 +1778,7 @@ void draw_game_over(GameContext* ctx) {
     drawbutton(ctx, ctx->back_button);
 }
 
+
 bool mouse_over_button(Button btn, double mouse_x, double mouse_y) {
     return (mouse_x >= btn.x && mouse_x <= btn.x + btn.width &&
         mouse_y >= btn.y && mouse_y <= btn.y + btn.height);
@@ -1549,12 +1786,9 @@ bool mouse_over_button(Button btn, double mouse_x, double mouse_y) {
 
 void mouse_button_callback(GLFWwindow* window, int button, int action, int mods) {
     GameContext* ctx = (GameContext*)glfwGetWindowUserPointer(window);
-
-    // если не левая кнопка мыши и не нажатие, то игнорим
     if (button != GLFW_MOUSE_BUTTON_LEFT || action != GLFW_PRESS) return;
-
     double xpos, ypos;
-    glfwGetCursorPos(window, &xpos, &ypos); // получаем координаты курсора
+    glfwGetCursorPos(window, &xpos, &ypos);
 
     if (ctx->current_screen == MENU_SCREEN) {
         if (mouse_over_button(ctx->start_button, xpos, ypos)) {
@@ -1562,7 +1796,7 @@ void mouse_button_callback(GLFWwindow* window, int button, int action, int mods)
                 ctx->current_screen = GAME_SCREEN;
             }
             else {
-                // новая игра
+                // Новая игра
                 ctx->current_screen = GAME_SCREEN;
                 for (unsigned long long i = 0; i < ctx->board->capacity; i++) {
                     Node* current = ctx->board->buckets[i];
@@ -1585,10 +1819,10 @@ void mouse_button_callback(GLFWwindow* window, int button, int action, int mods)
             ctx->current_screen = SETTINGS_SCREEN;
         }
         else if (mouse_over_button(ctx->help_button, xpos, ypos)) {
-            ctx->current_screen = HELP_SCREEN;
+            ctx->current_screen = HELP_SCREEN; // Переход к справке
         }
         else if (mouse_over_button(ctx->about_button, xpos, ypos)) {
-            ctx->current_screen = ABOUT_SCREEN;
+            ctx->current_screen = ABOUT_SCREEN; // Новый экран
         }
     }
     else if (ctx->current_screen == ABOUT_SCREEN) {
@@ -1637,6 +1871,9 @@ void mouse_button_callback(GLFWwindow* window, int button, int action, int mods)
         }
         else if (mouse_over_button(ctx->difficulty_button, xpos, ypos)) {
             ctx->parameters.difficulty = (ctx->parameters.difficulty % 4) + 1;
+            if (ctx->parameters.difficulty == 3) ctx->parameters.depth = 2;
+            else ctx->parameters.depth = 10;
+           
         }
         else if (mouse_over_button(ctx->infinite_field_button, xpos, ypos) && ctx->parameters.infinite_field == 0) {
             ctx->parameters.infinite_field = 1;
@@ -1647,6 +1884,7 @@ void mouse_button_callback(GLFWwindow* window, int button, int action, int mods)
 
     }
 }
+
 
 void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods) {
     GameContext* ctx = (GameContext*)glfwGetWindowUserPointer(window);
@@ -1694,7 +1932,7 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
                 return;
             }
             else if (ctx->current_screen == GAME_SCREEN) {
-                // в игровом экроме можно предложить подтверждение выхода
+                // В игровом экроме можно предложить подтверждение выхода
                 ctx->current_screen = MENU_SCREEN;
                 return;
             }
@@ -1756,6 +1994,18 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
                 ctx->current_screen = MENU_SCREEN;
             }
             break;
+            // Сброс сохраненной игры из игрового экрана
+        case GLFW_KEY_R:
+            if (mods & GLFW_MOD_CONTROL) {
+                if (reset_saved_game()) {
+                    printf("Saved game reset successfully!\n");
+                }
+            }
+            break;
+        case GLFW_KEY_H:
+            // H для справки из игрового экрана
+            ctx->current_screen = HELP_SCREEN;
+            break;
         }
     }
     else if (ctx->current_screen == MENU_SCREEN && action == GLFW_PRESS) {
@@ -1763,8 +2013,11 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
         case GLFW_KEY_S:
             ctx->current_screen = SETTINGS_SCREEN;
             break;
+        case GLFW_KEY_H:
+            ctx->current_screen = HELP_SCREEN;
+            break;
         case GLFW_KEY_N:
-            // новая игра
+            // Новая игра
             ctx->current_screen = GAME_SCREEN;
             for (unsigned long long i = 0; i < ctx->board->capacity; i++) {
                 Node* current = ctx->board->buckets[i];
@@ -1785,11 +2038,49 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
         case GLFW_KEY_L:
             if (load_game(ctx)) ctx->current_screen = GAME_SCREEN;
             break;
+            // Сброс сохраненной игры из главного меню
+        case GLFW_KEY_R:
+            if (mods & GLFW_MOD_CONTROL) {
+                if (reset_saved_game()) {
+                    ctx->start_button.text = "START";
+                    printf("Saved game reset successfully!\n");
+                }
+            }
+            break;
+        case GLFW_KEY_F9:
+            // F9 для сброса без комбинации
+            if (reset_saved_game()) {
+                ctx->start_button.text = "START";
+                printf("Saved game reset successfully!\n");
+            }
+            break;
         }
     }
+    else if (ctx->current_screen == HELP_SCREEN && action == GLFW_PRESS) {
+        switch (key) {
+        case GLFW_KEY_ESCAPE:
+            ctx->current_screen = MENU_SCREEN;
+            break;
+        }
+    }
+    else if (ctx->current_screen == SETTINGS_SCREEN && action == GLFW_PRESS) {
+        switch (key) {
+        case GLFW_KEY_ESCAPE:
+            ctx->current_screen = MENU_SCREEN;
+            break;
+        }
+    }
+    else if (ctx->current_screen == GAME_OVER && action == GLFW_PRESS) {
+        switch (key) {
+        case GLFW_KEY_ESCAPE:
+            ctx->current_screen = MENU_SCREEN;
+            break;
+        }
+    }
+
 }
 
-// для подсветки кнопок
+
 void update_hover_state(GLFWwindow* window, GameContext* ctx) {
     double xpos, ypos;
     glfwGetCursorPos(window, &xpos, &ypos);
@@ -1821,8 +2112,10 @@ void update_hover_state(GLFWwindow* window, GameContext* ctx) {
     }
 }
 
+
+
 void draw_game_borders(GameContext* ctx) {
-    // для бесконечного поля не рисуем границы вообще
+    // Для бесконечного поля не рисуем границы вообще
     if (ctx->parameters.infinite_field == 1) {
         return;
     }
@@ -1830,19 +2123,19 @@ void draw_game_borders(GameContext* ctx) {
     glColor3f(0.4f, 0.2f, 0.0f);
     glLineWidth(5.0f);
 
-    // определяем видимую область поля
+    // Определяем видимую область поля
     int start_x = floor((float)ctx->view_offset_x / CELL_SIZE);
     int start_y = floor((float)ctx->view_offset_y / CELL_SIZE);
     int end_x = start_x + VISIBLE_CELLS_X;
     int end_y = start_y + VISIBLE_CELLS_Y;
 
-    // ограничиваем видимую область размерами поля
+    // Ограничиваем видимую область размерами поля
     end_x = (end_x > ctx->parameters.size) ? ctx->parameters.size : end_x;
     end_y = (end_y > ctx->parameters.size) ? ctx->parameters.size : end_y;
     start_x = (start_x < 0) ? 0 : start_x;
     start_y = (start_y < 0) ? 0 : start_y;
 
-    // рисуем границы только для видимой области
+    // Рисуем границы только для видимой области
     glBegin(GL_LINE_LOOP);
     float x0 = start_x * CELL_SIZE - ctx->view_offset_x;
     float y0 = start_y * CELL_SIZE - ctx->view_offset_y;
@@ -1858,24 +2151,35 @@ void draw_game_borders(GameContext* ctx) {
     glLineWidth(1.0f);
 }
 
+
 void draw_game(GameContext* ctx) {
     glClear(GL_COLOR_BUFFER_BIT);
-    glClearColor(0.9f, 0.9f, 0.9f, 1.0f); // светлый фон для игрового экрана
-    draw_game_borders(ctx); // отрисовка границ поля
-    drawgrid(ctx); // отрисовка игровой сетки
-    drawbutton(ctx, ctx->back_button); // отрисовка кнопки "BACK"
+    glClearColor(0.9f, 0.9f, 0.9f, 1.0f); // Светлый фон для игрового экрана
+    draw_game_borders(ctx);
+    drawgrid(ctx); // Отрисовка игровой сетки
+    drawbutton(ctx, ctx->back_button); // Отрисовка кнопки "BACK"
+    // Отображение текущего хода
 }
 
 void computer_move(GameContext* ctx) {
     best_move cand;
     generate_candidates(ctx->board, &ctx->parameters, &ctx->bbox, true, 64, &cand, ctx);
+
     if (cand.n == 0) { // ничья, если нет кандидатов
         ctx->winner = 3;
         ctx->current_screen = GAME_OVER;
         return;
     }
 
-    minimax_move(ctx->board, &ctx->parameters, &ctx->bbox, ctx);
+    if (ctx->parameters.difficulty == 3 || ctx->parameters.difficulty == 4) {
+        new_computer_move(ctx);
+    }
+    else if (ctx->parameters.difficulty == 2) {
+        medium_move(ctx->board, &ctx->parameters, &ctx->bbox, ctx);
+    }
+    else if (ctx->parameters.difficulty == 1) {
+        easy_move(ctx->board, &ctx->parameters, &ctx->bbox, ctx);
+    }
     ctx->parameters.count_moves++;
 
     if (check_win(ctx->board, ctx->parameters.size, ctx->parameters.len,
@@ -1903,6 +2207,7 @@ void init_game_context(GameContext* ctx) {
     ctx->parameters.count_moves = 0;
     ctx->parameters.last_ai_x = ctx->parameters.last_ai_y = LLONG_MAX;
     ctx->parameters.last_pl_x = ctx->parameters.last_pl_y = LLONG_MAX;
+    ctx->parameters.depth = 3;
     ctx->parameters.player = 'X';
     ctx->parameters.ai = 'O';
     ctx->parameters.difficulty = 1;
@@ -1911,6 +2216,7 @@ void init_game_context(GameContext* ctx) {
     ctx->bbox.initialized = false;
     ctx->char_width = 15.0f;
     ctx->char_height = 20.0f;
+    ctx->char_spacing = 2.0f;
     ctx->view_offset_x = 0;
     ctx->view_offset_y = 0;
     ctx->cursor_x = 0;
@@ -1932,35 +2238,35 @@ void init_game_context(GameContext* ctx) {
 }
 
 int main() {
+    srand(time(NULL));
     setlocale(LC_ALL, "");
-    if (!glfwInit()) { // инициализация GLFW
+    if (!glfwInit()) {
         return -1;
     }
 
-    // создание окна
-    glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE); // запрет изменения размера
+    glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
     GLFWwindow* window = glfwCreateWindow(WINDOW_WIDTH, WINDOW_HEIGHT, "Tic Tac Toe", NULL, NULL);
     if (!window) {
         glfwTerminate();
         return -1;
     }
 
-    glfwMakeContextCurrent(window); // активация контекста OpenGL
+    glfwMakeContextCurrent(window);
 
-    // инициализация GLEW ДО создания контекста
+    // Инициализация GLEW ДО создания контекста
     glewExperimental = GL_TRUE;
     if (glewInit() != GLEW_OK) {
         glfwTerminate();
         return -1;
     }
 
-    GameContext ctx;                    // создание структуры с данными игры
-    init_game_context(&ctx);           // инициализация игры
-    glfwSetWindowUserPointer(window, &ctx); // сохранение контекста в окне
-    glfwSetKeyCallback(window, key_callback);       // регистрация обработчиков
+    GameContext ctx;
+    init_game_context(&ctx);
+    glfwSetWindowUserPointer(window, &ctx);
+    glfwSetKeyCallback(window, key_callback);
     glfwSetMouseButtonCallback(window, mouse_button_callback);
 
-    // настройка OpenGL
+    // Настройка OpenGL
     glMatrixMode(GL_PROJECTION);
     glLoadIdentity();
     glOrtho(0, WINDOW_WIDTH, WINDOW_HEIGHT, 0, -1, 1);
@@ -1968,7 +2274,7 @@ int main() {
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
-    // в главном цикле добавляем обработку нового экрана
+    // В главном цикле добавляем обработку нового экрана
     while (!glfwWindowShouldClose(window)) {
         glClear(GL_COLOR_BUFFER_BIT);
 
@@ -1987,8 +2293,8 @@ int main() {
         case ABOUT_SCREEN: draw_about(&ctx); break;
         }
 
-        glfwSwapBuffers(window);  // показываем нарисованный кадр
-        glfwPollEvents();         // обрабатываем события (клавиатура, мышь)
+        glfwSwapBuffers(window);
+        glfwPollEvents();
     }
 
     for (unsigned long long i = 0; i < ctx.board->capacity; i++) {

@@ -7,6 +7,10 @@
       "RelativeMoniker": "D:0:0:{BD52798E-729D-4A28-8CCB-448BE9E7AD3C}|\u043A\u0443\u0440\u0441\u0430\u0447\\\u043A\u0443\u0440\u0441\u0430\u0447.vcxproj|solutionrelative:\u043A\u0443\u0440\u0441\u0430\u0447\\first_code.c||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}"
     },
     {
+      "AbsoluteMoniker": "D:0:0:{BD52798E-729D-4A28-8CCB-448BE9E7AD3C}|\u043A\u0443\u0440\u0441\u0430\u0447\\\u043A\u0443\u0440\u0441\u0430\u0447.vcxproj|C:\\Users\\anast\\source\\repos\\\u043A\u0443\u0440\u0441\u0430\u0447\\\u043A\u0443\u0440\u0441\u0430\u0447\\\u0430\u043B\u0433\u043E\u0440\u0438\u0442\u043C.c||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}",
+      "RelativeMoniker": "D:0:0:{BD52798E-729D-4A28-8CCB-448BE9E7AD3C}|\u043A\u0443\u0440\u0441\u0430\u0447\\\u043A\u0443\u0440\u0441\u0430\u0447.vcxproj|solutionrelative:\u043A\u0443\u0440\u0441\u0430\u0447\\\u0430\u043B\u0433\u043E\u0440\u0438\u0442\u043C.c||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}"
+    },
+    {
       "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|C:\\Users\\anast\\Desktop\\code_new.c||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}"
     }
   ],
@@ -17,7 +21,7 @@
       "DocumentGroups": [
         {
           "DockedWidth": 200,
-          "SelectedChildIndex": 2,
+          "SelectedChildIndex": 3,
           "Children": [
             {
               "$type": "Bookmark",
@@ -29,13 +33,26 @@
             },
             {
               "$type": "Document",
+              "DocumentIndex": 1,
+              "Title": "\u0430\u043B\u0433\u043E\u0440\u0438\u0442\u043C.c",
+              "DocumentMoniker": "C:\\Users\\anast\\source\\repos\\\u043A\u0443\u0440\u0441\u0430\u0447\\\u043A\u0443\u0440\u0441\u0430\u0447\\\u0430\u043B\u0433\u043E\u0440\u0438\u0442\u043C.c",
+              "RelativeDocumentMoniker": "\u043A\u0443\u0440\u0441\u0430\u0447\\\u0430\u043B\u0433\u043E\u0440\u0438\u0442\u043C.c",
+              "ToolTip": "C:\\Users\\anast\\source\\repos\\\u043A\u0443\u0440\u0441\u0430\u0447\\\u043A\u0443\u0440\u0441\u0430\u0447\\\u0430\u043B\u0433\u043E\u0440\u0438\u0442\u043C.c",
+              "RelativeToolTip": "\u043A\u0443\u0440\u0441\u0430\u0447\\\u0430\u043B\u0433\u043E\u0440\u0438\u0442\u043C.c",
+              "ViewState": "AgIAAG8CAAAAAAAAAAAUwHYCAAAlAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000423|",
+              "WhenOpened": "2025-12-07T18:24:38.643Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
               "DocumentIndex": 0,
               "Title": "first_code.c",
               "DocumentMoniker": "C:\\Users\\anast\\source\\repos\\\u043A\u0443\u0440\u0441\u0430\u0447\\\u043A\u0443\u0440\u0441\u0430\u0447\\first_code.c",
               "RelativeDocumentMoniker": "\u043A\u0443\u0440\u0441\u0430\u0447\\first_code.c",
               "ToolTip": "C:\\Users\\anast\\source\\repos\\\u043A\u0443\u0440\u0441\u0430\u0447\\\u043A\u0443\u0440\u0441\u0430\u0447\\first_code.c",
               "RelativeToolTip": "\u043A\u0443\u0440\u0441\u0430\u0447\\first_code.c",
-              "ViewState": "AgIAAKAAAAAAAAAAAAAowJEAAAAiAAAAAAAAAA==",
+              "ViewState": "AgIAAGIIAAAAAAAAAAAAAGsIAAAhAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000423|",
               "WhenOpened": "2025-12-05T20:20:17.832Z",
               "EditorCaption": ""
@@ -50,8 +67,8 @@
       "FloatingWindowState": {
         "Id": "174ca8b6-0c0e-4a8f-870c-f5f731082324",
         "Display": 0,
-        "X": 474,
-        "Y": 200,
+        "X": 286,
+        "Y": 133,
         "Width": 752,
         "Height": 556,
         "WindowState": 0
@@ -63,13 +80,13 @@
           "Children": [
             {
               "$type": "Document",
-              "DocumentIndex": 1,
+              "DocumentIndex": 2,
               "Title": "code_new.c",
               "DocumentMoniker": "C:\\Users\\anast\\Desktop\\code_new.c",
               "RelativeDocumentMoniker": "..\\..\\..\\Desktop\\code_new.c",
               "ToolTip": "C:\\Users\\anast\\Desktop\\code_new.c",
               "RelativeToolTip": "..\\..\\..\\Desktop\\code_new.c",
-              "ViewState": "AgIAAIEAAAAAAAAAAAAAAKUAAAAvAAAAAAAAAA==",
+              "ViewState": "AgIAAIYAAAAAAAAAAAAYwKUAAAAvAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000423|",
               "WhenOpened": "2025-12-07T16:47:19.191Z",
               "EditorCaption": ""
