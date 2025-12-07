@@ -15,9 +15,6 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="code_new.c">
-      <Filter>Исходные файлы</Filter>
-    </ClCompile>
     <ClCompile Include="first_code.c">
       <Filter>Исходные файлы</Filter>
     </ClCompile>

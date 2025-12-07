@@ -133,7 +133,6 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="code_new.c" />
     <ClCompile Include="first_code.c" />
     <ClCompile Include="алгоритм.c" />
   </ItemGroup>

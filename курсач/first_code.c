@@ -535,7 +535,7 @@ void minimax_move(Table* board, base* parameters, bounds* bbox, GameContext* ctx
         insert(board, bx, by, parameters->ai);
         bbox_on_place(bbox, bx, by);
         parameters->last_ai_x = bx;
-        parameters->last_ai_y = by;
+        parameters->last_ai_y = by; 
         return;
     }
     if (find_immediate_move(board, parameters, bbox, false, &bx, &by, ctx)) {
@@ -595,7 +595,24 @@ void minimax_move(Table* board, base* parameters, bounds* bbox, GameContext* ctx
         insert(board, bestX, bestY, parameters->ai);
         bbox_on_place(bbox, bestX, bestY);
         parameters->last_ai_x = bestX;
-        parameters->last_ai_y = bestY;
+        parameters->last_ai_y = bestY;  
+    }
+}
+
+void easy_ai_move(Table* board, base* parameters, bounds* bbox, GameContext* ctx) {
+    best_move cand;
+    generate_candidates(board, parameters, bbox, true, 64, &cand, ctx);
+
+    if (cand.n > 0) {
+        // Рандомный выбор из доступных ходов
+        int random_index = rand() % cand.n;
+        long long x = cand.x[random_index];
+        long long y = cand.y[random_index];
+
+        insert(board, x, y, parameters->ai);
+        bbox_on_place(bbox, x, y);
+        parameters->last_ai_x = x;
+        parameters->last_ai_y = y;
     }
 }
 
