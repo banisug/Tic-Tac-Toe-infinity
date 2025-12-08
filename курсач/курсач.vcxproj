@@ -134,6 +134,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="first_code.c" />
+    <ClCompile Include="with_auto.c" />
     <ClCompile Include="алгоритм.c" />
   </ItemGroup>
   <ItemGroup>

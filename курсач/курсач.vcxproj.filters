@@ -21,6 +21,9 @@
     <ClCompile Include="алгоритм.c">
       <Filter>Исходные файлы</Filter>
     </ClCompile>
+    <ClCompile Include="with_auto.c">
+      <Filter>Исходные файлы</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="funny.h">
