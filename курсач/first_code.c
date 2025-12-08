@@ -366,81 +366,43 @@ void best_move_push(best_move* moves, long long x, long long y, int sc, short K)
 
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // генерация лучших клеток для хода
 void generate_candidates(Table* board, base* parameters, bounds* bbox, bool forAI, short K, best_move* out, GameContext* ctx) {
     out->n = 0;
     short R = 2;
 
     if (!bbox->initialized) {
-        long long c = 0;
+        long long c = 0; // Для бесконечного поля начинаем с центра (0,0)
         if (get_value(board, c, c, parameters->size, ctx) == '.') {
             best_move_push(out, c, c, 0, K);
         }
         return;
     }
 
-    long long search_center_x, search_center_y;
+    // для бесконечного поля используем полный диапазон координат из bbox
+    long long x0 = bbox->minx - R;
+    long long x1 = bbox->maxx + R;
+    long long y0 = bbox->miny - R;
+    long long y1 = bbox->maxy + R;
 
-    // Определяем центр поиска: последний ход игрока, если он есть
-    if (parameters->last_pl_x != LLONG_MAX && parameters->last_pl_y != LLONG_MAX) {
-        // Ищем от последнего хода игрока
-        search_center_x = parameters->last_pl_x;
-        search_center_y = parameters->last_pl_y;
-    }
-    else if (parameters->last_ai_x != LLONG_MAX && parameters->last_ai_y != LLONG_MAX) {
-        // Если нет хода игрока, ищем от последнего хода ИИ
-        search_center_x = parameters->last_ai_x;
-        search_center_y = parameters->last_ai_y;
-    }
-    else {
-        // Если вообще нет ходов, ищем от центра bbox
-        search_center_x = (bbox->minx + bbox->maxx) / 2;
-        search_center_y = (bbox->miny + bbox->maxy) / 2;
-    }
-
-    // Определяем диапазон поиска вокруг центра
-    long long search_range;
-    if (parameters->infinite_field == 1) {
-        // Для бесконечного поля - небольшой диапазон для скорости
-        search_range = 6; // Ищем в радиусе 8 клеток от последнего хода
-    }
-    else {
-        // Для ограниченного поля - можно больше
-        search_range = 10;
-    }
-
-    long long x0 = search_center_x - search_range;
-    long long x1 = search_center_x + search_range;
-    long long y0 = search_center_y - search_range;
-    long long y1 = search_center_y + search_range;
-
-    // Для бесконечного поля гарантируем, что диапазон не слишком большой
-    if (parameters->infinite_field == 1) {
-        // Ограничиваем абсолютные значения координат
-        const long long MAX_ABS_COORD = 50;
-        if (x0 < -MAX_ABS_COORD) x0 = -MAX_ABS_COORD;
-        if (x1 > MAX_ABS_COORD) x1 = MAX_ABS_COORD;
-        if (y0 < -MAX_ABS_COORD) y0 = -MAX_ABS_COORD;
-        if (y1 > MAX_ABS_COORD) y1 = MAX_ABS_COORD;
-    }
+    // ограничиваем поиск разумными пределами для производительности
+    if (x1 - x0 > 20) x1 = x0 + 20;
+    if (y1 - y0 > 20) y1 = y0 + 20;
 
     for (long long y = y0; y <= y1; ++y) {
         for (long long x = x0; x <= x1; ++x) {
             if (get_value(board, x, y, parameters->size, ctx) != '.') continue;
 
             int neighbors = 0;
-            // Проверяем соседей только в ближайшей области для производительности
-            for (int dx = -1; dx <= 1; ++dx) {
-                for (int dy = -1; dy <= 1; ++dy) {
+            for (int dx = -2; dx <= 2; ++dx) {
+                for (int dy = -2; dy <= 2; ++dy) {
                     if (!dx && !dy) continue;
                     char value = get_value(board, x + dx, y + dy, parameters->size, ctx);
                     if (value == parameters->ai || value == parameters->player) {
                         neighbors++;
-                        // Быстрый выход если нашли достаточно соседей
-                        if (neighbors >= 3) break;
                     }
                 }
-                if (neighbors >= 3) break;
             }
 
             if (!neighbors && parameters->count_moves > 0) continue;
@@ -453,91 +415,6 @@ void generate_candidates(Table* board, base* parameters, bounds* bbox, bool forA
             best_move_push(out, x, y, sc, K);
         }
     }
-
-    // Если не нашли достаточно кандидатов, расширяем поиск
-    if (out->n < K / 2 && parameters->infinite_field == 1) {
-        // Расширяем диапазон поиска
-        long long extended_range = search_range * 2;
-        long long ex0 = search_center_x - extended_range;
-        long long ex1 = search_center_x + extended_range;
-        long long ey0 = search_center_y - extended_range;
-        long long ey1 = search_center_y + extended_range;
-
-        // Ограничиваем абсолютные значения
-        const long long MAX_ABS_COORD = 100;
-        if (ex0 < -MAX_ABS_COORD) ex0 = -MAX_ABS_COORD;
-        if (ex1 > MAX_ABS_COORD) ex1 = MAX_ABS_COORD;
-        if (ey0 < -MAX_ABS_COORD) ey0 = -MAX_ABS_COORD;
-        if (ey1 > MAX_ABS_COORD) ey1 = MAX_ABS_COORD;
-
-        // Ищем дополнительные кандидаты
-        for (long long y = ey0; y <= ey1; ++y) {
-            // Пропускаем уже проверенную область
-            if (y >= y0 && y <= y1) {
-                // Пропускаем уже проверенные x в этой строке
-                for (long long x = ex0; x <= ex1; ++x) {
-                    if (x >= x0 && x <= x1) continue; // Уже проверено
-
-                    if (get_value(board, x, y, parameters->size, ctx) != '.') continue;
-
-                    int neighbors = 0;
-                    for (int dx = -1; dx <= 1; ++dx) {
-                        for (int dy = -1; dy <= 1; ++dy) {
-                            if (!dx && !dy) continue;
-                            char value = get_value(board, x + dx, y + dy, parameters->size, ctx);
-                            if (value == parameters->ai || value == parameters->player) {
-                                neighbors++;
-                                if (neighbors >= 2) break;
-                            }
-                        }
-                        if (neighbors >= 2) break;
-                    }
-
-                    if (!neighbors) continue;
-
-                    int score_ai = line_score(board, parameters->size, parameters->len, x, y, parameters->ai, ctx);
-                    int score_pl = line_score(board, parameters->size, parameters->len, x, y, parameters->player, ctx);
-                    int sc = forAI ? score_ai - (score_pl / 2) : score_pl - (score_ai / 2);
-                    sc += neighbors * 1000;
-
-                    best_move_push(out, x, y, sc, K);
-
-                    if (out->n >= K) break;
-                }
-            }
-            else {
-                // Новая строка, проверяем все x
-                for (long long x = ex0; x <= ex1; ++x) {
-                    if (get_value(board, x, y, parameters->size, ctx) != '.') continue;
-
-                    int neighbors = 0;
-                    for (int dx = -1; dx <= 1; ++dx) {
-                        for (int dy = -1; dy <= 1; ++dy) {
-                            if (!dx && !dy) continue;
-                            char value = get_value(board, x + dx, y + dy, parameters->size, ctx);
-                            if (value == parameters->ai || value == parameters->player) {
-                                neighbors++;
-                                if (neighbors >= 2) break;
-                            }
-                        }
-                        if (neighbors >= 2) break;
-                    }
-
-                    if (!neighbors) continue;
-
-                    int score_ai = line_score(board, parameters->size, parameters->len, x, y, parameters->ai, ctx);
-                    int score_pl = line_score(board, parameters->size, parameters->len, x, y, parameters->player, ctx);
-                    int sc = forAI ? score_ai - (score_pl / 2) : score_pl - (score_ai / 2);
-                    sc += neighbors * 1000;
-
-                    best_move_push(out, x, y, sc, K);
-
-                    if (out->n >= K) break;
-                }
-            }
-            if (out->n >= K) break;
-        }
-    }
 }
 
 // поиск выигрышных ходов
@@ -545,7 +422,7 @@ bool find_immediate_move(Table* board, base* parameters, bounds* bbox, bool forA
     best_move cand;
     short K;
     if (parameters->infinite_field == 1) {
-        K = 50;
+        K = 200;
     }
     else {
         K = 64;
@@ -745,32 +622,11 @@ void minimax_move(Table* board, base* parameters, bounds* bbox, GameContext* ctx
 
 
 // когда игрок может выиграть след ходом
-// когда игрок может выиграть след ходом (ИСПРАВЛЕННАЯ - поиск от последнего хода)
 bool find_critical_threat(GameContext* ctx, long long* bx, long long* by) {
     int directions[8][2] = {
         {0, 1}, {1, 0}, {1, 1}, {1, -1},
         {0, -1}, {-1, 0}, {-1, -1}, {-1, 1}
     };
-
-    // Определяем центр поиска
-    long long search_center_x, search_center_y;
-    if (ctx->parameters.last_pl_x != LLONG_MAX && ctx->parameters.last_pl_y != LLONG_MAX) {
-        search_center_x = ctx->parameters.last_pl_x;
-        search_center_y = ctx->parameters.last_pl_y;
-    }
-    else {
-        // Если нет хода игрока, используем центр bbox
-        search_center_x = (ctx->bbox.minx + ctx->bbox.maxx) / 2;
-        search_center_y = (ctx->bbox.miny + ctx->bbox.maxy) / 2;
-    }
-
-    // Для бесконечного поля ограничиваем диапазон поиска
-    long long search_range = (ctx->parameters.infinite_field == 1) ? 8 : 10;
-
-    long long min_i = search_center_x - search_range;
-    long long max_i = search_center_x + search_range;
-    long long min_j = search_center_y - search_range;
-    long long max_j = search_center_y + search_range;
 
     // проверяем угрозы разной длины
     for (int threatLength = ctx->parameters.len - 1; threatLength >= 2; threatLength--) {
@@ -778,9 +634,9 @@ bool find_critical_threat(GameContext* ctx, long long* bx, long long* by) {
             int deltaRow = directions[dir][0];
             int deltaCol = directions[dir][1];
 
-            // проверяем все возможные линии в ограниченной области
-            for (long long i = min_i; i <= max_i; i++) {
-                for (long long j = min_j; j <= max_j; j++) {
+            // проверяем все возможные линии
+            for (long long i = ctx->bbox.minx - 2; i <= ctx->bbox.maxx + 2; i++) {
+                for (long long j = ctx->bbox.miny - 2; j <= ctx->bbox.maxy + 2; j++) {
                     int playerCount = 0;
                     int emptyCount = 0;
                     long long emptyRow = -1, emptyCol = -1;
@@ -1007,7 +863,7 @@ int evaluate_blocking_move(GameContext* ctx, long long row, long long col) {
                 playerSequenceLength++;
             }
             else if (val == ctx->parameters.ai) {
-                canBlock = 0; 
+                canBlock = 0;
                 break;
             }
             else if (val != '.') {
@@ -1048,7 +904,7 @@ int evaluate_blocking_move(GameContext* ctx, long long row, long long col) {
         long long newRow = row + directions[dir][0];
         long long newCol = col + directions[dir][1];
 
-     
+
         if (ctx->parameters.infinite_field == 0 &&
             (newRow < 0 || newRow >= ctx->parameters.size ||
                 newCol < 0 || newCol >= ctx->parameters.size)) {
@@ -1069,7 +925,7 @@ int evaluate_blocking_move(GameContext* ctx, long long row, long long col) {
         }
         else if (row == 0 || row == ctx->parameters.size - 1 ||
             col == 0 || col == ctx->parameters.size - 1) {
-            score -= 10; 
+            score -= 10;
         }
     }
 
@@ -1080,7 +936,7 @@ int evaluate_blocking_move(GameContext* ctx, long long row, long long col) {
     }
     else if (ctx->parameters.infinite_field == 1) {
         long long distanceFromOrigin = llabs(row) + llabs(col);
-        score -= distanceFromOrigin * 2; 
+        score -= distanceFromOrigin * 2;
     }
 
     return score;
@@ -1164,10 +1020,10 @@ void new_computer_move(GameContext* ctx) {
     }
 
     if (ctx->parameters.difficulty == 3) {
-        ctx->parameters.depth =6;
+        ctx->parameters.depth = 4;
     }
     if (ctx->parameters.difficulty == 4) {
-        ctx->parameters.depth = 10;
+        ctx->parameters.depth = 6;
     }
     minimax_move(ctx->board, &ctx->parameters, &ctx->bbox, ctx);
 }
@@ -1203,7 +1059,7 @@ void medium_move(Table* board, base* parameters, bounds* bbox, GameContext* ctx)
         return;
     }
     best_move cand;
-    generate_candidates(board, parameters, bbox, true, 16, &cand, ctx); 
+    generate_candidates(board, parameters, bbox, true, 16, &cand, ctx);
 
     if (cand.n > 0) {
         insert(board, cand.x[0], cand.y[0], parameters->ai);
@@ -1954,8 +1810,21 @@ void mouse_button_callback(GLFWwindow* window, int button, int action, int mods)
                 }
                 ctx->parameters.count_moves = 0;
                 ctx->bbox.initialized = false;
-                ctx->cursor_x = ctx->cursor_y = 0;
-                ctx->view_offset_x = ctx->view_offset_y = 0;
+                if (ctx->parameters.infinite_field == 1) {
+                    // Для бесконечного поля начинаем с видимого центра
+                    ctx->cursor_x = 0;
+                    ctx->cursor_y = 0;
+                    // Центрируем вид так, чтобы центр поля был в центре экрана
+                    ctx->view_offset_x = -VISIBLE_CELLS_X / 2 * CELL_SIZE + CELL_SIZE / 2;
+                    ctx->view_offset_y = -VISIBLE_CELLS_Y / 2 * CELL_SIZE + CELL_SIZE / 2;
+                }
+                else {
+                    // Для ограниченного поля как раньше
+                    ctx->cursor_x = 0;
+                    ctx->cursor_y = 0;
+                    ctx->view_offset_x = 0;
+                    ctx->view_offset_y = 0;
+                }
                 ctx->is_player_turn = ctx->parameters.player_moves_first;
                 ctx->winner = 0;
             }
@@ -2089,24 +1958,28 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
         switch (key) {
         case GLFW_KEY_UP:
             ctx->cursor_y--;
+            // Для бесконечного поля нет границ
             if (ctx->cursor_y * CELL_SIZE - ctx->view_offset_y < 0) {
                 ctx->view_offset_y = ctx->cursor_y * CELL_SIZE;
             }
             break;
         case GLFW_KEY_DOWN:
             ctx->cursor_y++;
+            // Для бесконечного поля нет границ
             if (ctx->cursor_y * CELL_SIZE - ctx->view_offset_y > (VISIBLE_CELLS_Y - 1) * CELL_SIZE) {
                 ctx->view_offset_y = ctx->cursor_y * CELL_SIZE - (VISIBLE_CELLS_Y - 1) * CELL_SIZE;
             }
             break;
         case GLFW_KEY_LEFT:
             ctx->cursor_x--;
+            // Для бесконечного поля нет границ
             if (ctx->cursor_x * CELL_SIZE - ctx->view_offset_x < 0) {
                 ctx->view_offset_x = ctx->cursor_x * CELL_SIZE;
             }
             break;
         case GLFW_KEY_RIGHT:
             ctx->cursor_x++;
+            // Для бесконечного поля нет границ
             if (ctx->cursor_x * CELL_SIZE - ctx->view_offset_x > (VISIBLE_CELLS_X - 1) * CELL_SIZE) {
                 ctx->view_offset_x = ctx->cursor_x * CELL_SIZE - (VISIBLE_CELLS_X - 1) * CELL_SIZE;
             }
