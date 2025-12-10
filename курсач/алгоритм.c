@@ -364,12 +364,10 @@
 //    moves->y[i] = y;
 //}
 //
-//
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //// генерация лучших клеток для хода
 //void generate_candidates(Table* board, base* parameters, bounds* bbox, bool forAI, short K, best_move* out, GameContext* ctx) {
 //    out->n = 0;
-//    short R = 2;
 //
 //    if (!bbox->initialized) {
 //        long long c = 0;
@@ -379,71 +377,46 @@
 //        return;
 //    }
 //
-//    long long search_center_x, search_center_y;
+//    // ДЛЯ БЕСКОНЕЧНОГО ПОЛЯ - ОГРАНИЧИТЬ ПОИСК!
+//    long long search_range = 8; // Вместо 20!
 //
-//    // Определяем центр поиска: последний ход игрока, если он есть
-//    if (parameters->last_pl_x != LLONG_MAX && parameters->last_pl_y != LLONG_MAX) {
-//        // Ищем от последнего хода игрока
-//        search_center_x = parameters->last_pl_x;
-//        search_center_y = parameters->last_pl_y;
-//    }
-//    else if (parameters->last_ai_x != LLONG_MAX && parameters->last_ai_y != LLONG_MAX) {
-//        // Если нет хода игрока, ищем от последнего хода ИИ
-//        search_center_x = parameters->last_ai_x;
-//        search_center_y = parameters->last_ai_y;
-//    }
-//    else {
-//        // Если вообще нет ходов, ищем от центра bbox
-//        search_center_x = (bbox->minx + bbox->maxx) / 2;
-//        search_center_y = (bbox->miny + bbox->maxy) / 2;
-//    }
+//    long long x0 = bbox->minx - search_range;
+//    long long x1 = bbox->maxx + search_range;
+//    long long y0 = bbox->miny - search_range;
+//    long long y1 = bbox->maxy + search_range;
 //
-//    // Определяем диапазон поиска вокруг центра
-//    long long search_range;
-//    if (parameters->infinite_field == 1) {
-//        // Для бесконечного поля - небольшой диапазон для скорости
-//        search_range = 6; // Ищем в радиусе 8 клеток от последнего хода
+//    // Дополнительное ограничение
+//    if (x1 - x0 > 16) {
+//        long long center_x = (bbox->minx + bbox->maxx) / 2;
+//        x0 = center_x - 8;
+//        x1 = center_x + 8;
 //    }
-//    else {
-//        // Для ограниченного поля - можно больше
-//        search_range = 10;
-//    }
-//
-//    long long x0 = search_center_x - search_range;
-//    long long x1 = search_center_x + search_range;
-//    long long y0 = search_center_y - search_range;
-//    long long y1 = search_center_y + search_range;
-//
-//    // Для бесконечного поля гарантируем, что диапазон не слишком большой
-//    if (parameters->infinite_field == 1) {
-//        // Ограничиваем абсолютные значения координат
-//        const long long MAX_ABS_COORD = 50;
-//        if (x0 < -MAX_ABS_COORD) x0 = -MAX_ABS_COORD;
-//        if (x1 > MAX_ABS_COORD) x1 = MAX_ABS_COORD;
-//        if (y0 < -MAX_ABS_COORD) y0 = -MAX_ABS_COORD;
-//        if (y1 > MAX_ABS_COORD) y1 = MAX_ABS_COORD;
+//    if (y1 - y0 > 16) {
+//        long long center_y = (bbox->miny + bbox->maxy) / 2;
+//        y0 = center_y - 8;
+//        y1 = center_y + 8;
 //    }
 //
 //    for (long long y = y0; y <= y1; ++y) {
 //        for (long long x = x0; x <= x1; ++x) {
 //            if (get_value(board, x, y, parameters->size, ctx) != '.') continue;
 //
+//            // Упрощенная проверка соседей
 //            int neighbors = 0;
-//            // Проверяем соседей только в ближайшей области для производительности
 //            for (int dx = -1; dx <= 1; ++dx) {
 //                for (int dy = -1; dy <= 1; ++dy) {
 //                    if (!dx && !dy) continue;
 //                    char value = get_value(board, x + dx, y + dy, parameters->size, ctx);
 //                    if (value == parameters->ai || value == parameters->player) {
 //                        neighbors++;
-//                        // Быстрый выход если нашли достаточно соседей
-//                        if (neighbors >= 3) break;
+//                        if (neighbors >= 3) break; // Быстрый выход
 //                    }
 //                }
 //                if (neighbors >= 3) break;
 //            }
 //
-//            if (!neighbors && parameters->count_moves > 0) continue;
+//            // НЕ пропускаем клетки без соседей на первых ходах!
+//            if (!neighbors && parameters->count_moves > 5) continue;
 //
 //            int score_ai = line_score(board, parameters->size, parameters->len, x, y, parameters->ai, ctx);
 //            int score_pl = line_score(board, parameters->size, parameters->len, x, y, parameters->player, ctx);
@@ -453,110 +426,22 @@
 //            best_move_push(out, x, y, sc, K);
 //        }
 //    }
-//
-//    // Если не нашли достаточно кандидатов, расширяем поиск
-//    if (out->n < K / 2 && parameters->infinite_field == 1) {
-//        // Расширяем диапазон поиска
-//        long long extended_range = search_range * 2;
-//        long long ex0 = search_center_x - extended_range;
-//        long long ex1 = search_center_x + extended_range;
-//        long long ey0 = search_center_y - extended_range;
-//        long long ey1 = search_center_y + extended_range;
-//
-//        // Ограничиваем абсолютные значения
-//        const long long MAX_ABS_COORD = 100;
-//        if (ex0 < -MAX_ABS_COORD) ex0 = -MAX_ABS_COORD;
-//        if (ex1 > MAX_ABS_COORD) ex1 = MAX_ABS_COORD;
-//        if (ey0 < -MAX_ABS_COORD) ey0 = -MAX_ABS_COORD;
-//        if (ey1 > MAX_ABS_COORD) ey1 = MAX_ABS_COORD;
-//
-//        // Ищем дополнительные кандидаты
-//        for (long long y = ey0; y <= ey1; ++y) {
-//            // Пропускаем уже проверенную область
-//            if (y >= y0 && y <= y1) {
-//                // Пропускаем уже проверенные x в этой строке
-//                for (long long x = ex0; x <= ex1; ++x) {
-//                    if (x >= x0 && x <= x1) continue; // Уже проверено
-//
-//                    if (get_value(board, x, y, parameters->size, ctx) != '.') continue;
-//
-//                    int neighbors = 0;
-//                    for (int dx = -1; dx <= 1; ++dx) {
-//                        for (int dy = -1; dy <= 1; ++dy) {
-//                            if (!dx && !dy) continue;
-//                            char value = get_value(board, x + dx, y + dy, parameters->size, ctx);
-//                            if (value == parameters->ai || value == parameters->player) {
-//                                neighbors++;
-//                                if (neighbors >= 2) break;
-//                            }
-//                        }
-//                        if (neighbors >= 2) break;
-//                    }
-//
-//                    if (!neighbors) continue;
-//
-//                    int score_ai = line_score(board, parameters->size, parameters->len, x, y, parameters->ai, ctx);
-//                    int score_pl = line_score(board, parameters->size, parameters->len, x, y, parameters->player, ctx);
-//                    int sc = forAI ? score_ai - (score_pl / 2) : score_pl - (score_ai / 2);
-//                    sc += neighbors * 1000;
-//
-//                    best_move_push(out, x, y, sc, K);
-//
-//                    if (out->n >= K) break;
-//                }
-//            }
-//            else {
-//                // Новая строка, проверяем все x
-//                for (long long x = ex0; x <= ex1; ++x) {
-//                    if (get_value(board, x, y, parameters->size, ctx) != '.') continue;
-//
-//                    int neighbors = 0;
-//                    for (int dx = -1; dx <= 1; ++dx) {
-//                        for (int dy = -1; dy <= 1; ++dy) {
-//                            if (!dx && !dy) continue;
-//                            char value = get_value(board, x + dx, y + dy, parameters->size, ctx);
-//                            if (value == parameters->ai || value == parameters->player) {
-//                                neighbors++;
-//                                if (neighbors >= 2) break;
-//                            }
-//                        }
-//                        if (neighbors >= 2) break;
-//                    }
-//
-//                    if (!neighbors) continue;
-//
-//                    int score_ai = line_score(board, parameters->size, parameters->len, x, y, parameters->ai, ctx);
-//                    int score_pl = line_score(board, parameters->size, parameters->len, x, y, parameters->player, ctx);
-//                    int sc = forAI ? score_ai - (score_pl / 2) : score_pl - (score_ai / 2);
-//                    sc += neighbors * 1000;
-//
-//                    best_move_push(out, x, y, sc, K);
-//
-//                    if (out->n >= K) break;
-//                }
-//            }
-//            if (out->n >= K) break;
-//        }
-//    }
 //}
 //
 //// поиск выигрышных ходов
 //bool find_immediate_move(Table* board, base* parameters, bounds* bbox, bool forAI, long long* bx, long long* by, GameContext* ctx) {
 //    best_move cand;
-//    short K;
-//    if (parameters->infinite_field == 1) {
-//        K = 50;
-//    }
-//    else {
-//        K = 64;
-//    }
-//    generate_candidates(board, parameters, bbox, forAI, K, &cand, ctx);
-//    char me = forAI ? parameters->ai : parameters->player;
+//    // МЕНЬШЕ кандидатов для скорости!
+//    short K = (ctx->parameters.infinite_field == 1) ? 15 : 10;
+//
+//    generate_candidates(ctx->board, &ctx->parameters, &ctx->bbox, forAI, K, &cand, ctx);
+//    char me = forAI ? ctx->parameters.ai : ctx->parameters.player;
+//
 //    for (int i = 0; i < cand.n; ++i) {
 //        long long x = cand.x[i], y = cand.y[i];
-//        insert(board, x, y, me);
-//        bool win = check_win(board, parameters->size, parameters->len, x, y, me, ctx);
-//        remove_cell(board, x, y);
+//        insert(ctx->board, x, y, me);
+//        bool win = check_win(ctx->board, ctx->parameters.size, ctx->parameters.len, x, y, me, ctx);
+//        remove_cell(ctx->board, x, y);
 //        if (win) {
 //            *bx = x;
 //            *by = y;
@@ -566,418 +451,6 @@
 //    return false;
 //}
 //
-//// Функция для проверки соседних клеток вокруг последнего хода игрока
-//bool find_adjacent_move(Table* board, base* parameters, bounds* bbox, long long* bx, long long* by, GameContext* ctx) {
-//    if (parameters->last_pl_x == LLONG_MAX || parameters->last_pl_y == LLONG_MAX)
-//        return false;
-//
-//    // Проверяем все 8 соседних клеток
-//    int directions[8][2] = { {-1,0}, {1,0}, {0,-1}, {0,1}, {-1,1}, {1,-1}, {1,1}, {-1,-1} };
-//
-//    for (int i = 0; i < 8; i++) {
-//        long long nx = parameters->last_pl_x + directions[i][0];
-//        long long ny = parameters->last_pl_y + directions[i][1];
-//
-//        // Проверяем, находится ли клетка в пределах поля (для ограниченного поля)
-//        if (parameters->infinite_field == 0 &&
-//            (nx < 0 || nx >= parameters->size || ny < 0 || ny >= parameters->size)) {
-//            continue;
-//        }
-//
-//        // Проверяем, свободна ли клетка
-//        if (get_value(board, nx, ny, parameters->size, ctx) == '.') {
-//            *bx = nx;
-//            *by = ny;
-//            return true;
-//        }
-//    }
-//    return false;
-//}
-//
-//
-//// минимакс
-//int minimax(Table* board, base* parameters, bounds* bbox, bool isMax, int alpha, int beta, short depth, GameContext* ctx) {
-//    if (parameters->last_ai_x != LLONG_MAX &&
-//        check_win(board, parameters->size, parameters->len, parameters->last_ai_x, parameters->last_ai_y, parameters->ai, ctx)) {
-//        return 100000 - (int)parameters->count_moves;
-//    }
-//    if (parameters->last_pl_x != LLONG_MAX &&
-//        check_win(board, parameters->size, parameters->len, parameters->last_pl_x, parameters->last_pl_y, parameters->player, ctx)) {
-//        return -100000 + (int)parameters->count_moves;
-//    }
-//    if (depth <= 0) return eval_heuristic(board, parameters, bbox, ctx);
-//    int K = (depth >= 2 ? 24 : 16);
-//    best_move tk;
-//    generate_candidates(board, parameters, bbox, isMax, K, &tk, ctx);
-//    if (tk.n == 0) return 0;
-//    char me = isMax ? parameters->ai : parameters->player;
-//    for (int i = 0; i < tk.n; ++i) {
-//        long long x = tk.x[i], y = tk.y[i];
-//        insert(board, x, y, me);
-//        bool win = check_win(board, parameters->size, parameters->len, x, y, me, ctx);
-//        remove_cell(board, x, y);
-//        if (win) {
-//            if (isMax) return 100000 - (int)parameters->count_moves;
-//            else return -100000 + (int)parameters->count_moves;
-//        }
-//    }
-//    if (isMax) {
-//        int best = INT_MIN;
-//        for (int i = 0; i < tk.n && best < beta; ++i) {
-//            long long x = tk.x[i], y = tk.y[i];
-//            insert(board, x, y, parameters->ai);
-//            bbox_on_place(bbox, x, y);
-//            long long saved_ai_x = parameters->last_ai_x, saved_ai_y = parameters->last_ai_y;
-//            long long saved_pl_x = parameters->last_pl_x, saved_pl_y = parameters->last_pl_y;
-//            parameters->last_ai_x = x;
-//            parameters->last_ai_y = y;
-//            parameters->count_moves++;
-//            int val = minimax(board, parameters, bbox, false, alpha, beta, depth - 1, ctx);
-//            remove_cell(board, x, y);
-//            bbox_on_remove(bbox, board, parameters->size);
-//            parameters->last_ai_x = saved_ai_x;
-//            parameters->last_ai_y = saved_ai_y;
-//            parameters->last_pl_x = saved_pl_x;
-//            parameters->last_pl_y = saved_pl_y;
-//            parameters->count_moves--;
-//            if (val > best) best = val;
-//            if (best > alpha) alpha = best;
-//            if (alpha >= beta) break;
-//        }
-//        return best;
-//    }
-//    else {
-//        int best = INT_MAX;
-//        for (int i = 0; i < tk.n && best > alpha; ++i) {
-//            long long x = tk.x[i], y = tk.y[i];
-//            insert(board, x, y, parameters->player);
-//            bbox_on_place(bbox, x, y);
-//            long long saved_ai_x = parameters->last_ai_x, saved_ai_y = parameters->last_ai_y;
-//            long long saved_pl_x = parameters->last_pl_x, saved_pl_y = parameters->last_pl_y;
-//            parameters->last_pl_x = x;
-//            parameters->last_pl_y = y;
-//            parameters->count_moves++;
-//            int val = minimax(board, parameters, bbox, true, alpha, beta, depth - 1, ctx);
-//            remove_cell(board, x, y);
-//            bbox_on_remove(bbox, board, parameters->size);
-//            parameters->last_ai_x = saved_ai_x;
-//            parameters->last_ai_y = saved_ai_y;
-//            parameters->last_pl_x = saved_pl_x;
-//            parameters->last_pl_y = saved_pl_y;
-//            parameters->count_moves--;
-//            if (val < best) best = val;
-//            if (best < beta) beta = best;
-//            if (alpha >= beta) break;
-//        }
-//        return best;
-//    }
-//}
-//
-//void minimax_move(Table* board, base* parameters, bounds* bbox, GameContext* ctx) {
-//    long long bx, by;
-//    if (find_immediate_move(board, parameters, bbox, true, &bx, &by, ctx)) {
-//        insert(board, bx, by, parameters->ai);
-//        bbox_on_place(bbox, bx, by);
-//        parameters->last_ai_x = bx;
-//        parameters->last_ai_y = by;
-//        return;
-//    }
-//    if (find_immediate_move(board, parameters, bbox, false, &bx, &by, ctx)) {
-//        insert(board, bx, by, parameters->ai);
-//        bbox_on_place(bbox, bx, by);
-//        parameters->last_ai_x = bx;
-//        parameters->last_ai_y = by;
-//        return;
-//    }
-//
-//    if (parameters->len == 3 && parameters->size > 4 && parameters->difficulty > 2) {
-//        if (find_adjacent_move(board, parameters, bbox, &bx, &by, ctx)) {
-//            insert(board, bx, by, parameters->ai);
-//            bbox_on_place(bbox, bx, by);
-//            parameters->last_ai_x = bx;
-//            parameters->last_ai_y = by;
-//            return;
-//        }
-//    }
-//
-//    int bestVal = INT_MIN;
-//    long long bestX = -1, bestY = -1;
-//    best_move tk;
-//    generate_candidates(board, parameters, bbox, true, 32, &tk, ctx);
-//    int depth = 2;
-//    if (ctx->parameters.difficulty == 4) depth = 5;
-//    if (ctx->parameters.difficulty == 3) depth = 4;
-//    if (ctx->parameters.difficulty == 2) depth = 3;
-//
-//    if (parameters->infinite_field == 0 && parameters->size == 3) depth += 2;
-//    else if (parameters->infinite_field == 0 && parameters->size == 4) depth++;
-//
-//    for (int i = 0; i < tk.n; ++i) {
-//        long long x = tk.x[i], y = tk.y[i];
-//        insert(board, x, y, parameters->ai);
-//        bbox_on_place(bbox, x, y);
-//        long long saved_ai_x = parameters->last_ai_x, saved_ai_y = parameters->last_ai_y;
-//        long long saved_pl_x = parameters->last_pl_x, saved_pl_y = parameters->last_pl_y;
-//        parameters->last_ai_x = x;
-//        parameters->last_ai_y = y;
-//        parameters->count_moves++;
-//        int val = minimax(board, parameters, bbox, false, INT_MIN, INT_MAX, depth, ctx);
-//        remove_cell(board, x, y);
-//        bbox_on_remove(bbox, board, parameters->size);
-//        parameters->last_ai_x = saved_ai_x;
-//        parameters->last_ai_y = saved_ai_y;
-//        parameters->last_pl_x = saved_pl_x;
-//        parameters->last_pl_y = saved_pl_y;
-//        parameters->count_moves--;
-//        if (val > bestVal) {
-//            bestVal = val;
-//            bestX = x;
-//            bestY = y;
-//        }
-//    }
-//    if (bestX != -1) {
-//        insert(board, bestX, bestY, parameters->ai);
-//        bbox_on_place(bbox, bestX, bestY);
-//        parameters->last_ai_x = bestX;
-//        parameters->last_ai_y = bestY;
-//    }
-//}
-//
-//
-//// когда игрок может выиграть след ходом
-//// когда игрок может выиграть след ходом (ИСПРАВЛЕННАЯ - поиск от последнего хода)
-//bool find_critical_threat(GameContext* ctx, long long* bx, long long* by) {
-//    int directions[8][2] = {
-//        {0, 1}, {1, 0}, {1, 1}, {1, -1},
-//        {0, -1}, {-1, 0}, {-1, -1}, {-1, 1}
-//    };
-//
-//    // Определяем центр поиска
-//    long long search_center_x, search_center_y;
-//    if (ctx->parameters.last_pl_x != LLONG_MAX && ctx->parameters.last_pl_y != LLONG_MAX) {
-//        search_center_x = ctx->parameters.last_pl_x;
-//        search_center_y = ctx->parameters.last_pl_y;
-//    }
-//    else {
-//        // Если нет хода игрока, используем центр bbox
-//        search_center_x = (ctx->bbox.minx + ctx->bbox.maxx) / 2;
-//        search_center_y = (ctx->bbox.miny + ctx->bbox.maxy) / 2;
-//    }
-//
-//    // Для бесконечного поля ограничиваем диапазон поиска
-//    long long search_range = (ctx->parameters.infinite_field == 1) ? 8 : 10;
-//
-//    long long min_i = search_center_x - search_range;
-//    long long max_i = search_center_x + search_range;
-//    long long min_j = search_center_y - search_range;
-//    long long max_j = search_center_y + search_range;
-//
-//    // проверяем угрозы разной длины
-//    for (int threatLength = ctx->parameters.len - 1; threatLength >= 2; threatLength--) {
-//        for (int dir = 0; dir < 8; dir++) {
-//            int deltaRow = directions[dir][0];
-//            int deltaCol = directions[dir][1];
-//
-//            // проверяем все возможные линии в ограниченной области
-//            for (long long i = min_i; i <= max_i; i++) {
-//                for (long long j = min_j; j <= max_j; j++) {
-//                    int playerCount = 0;
-//                    int emptyCount = 0;
-//                    long long emptyRow = -1, emptyCol = -1;
-//                    int valid = 1;
-//
-//                    // проверяем линию длиной выигрыша
-//                    for (int k = 0; k < ctx->parameters.len; k++) {
-//                        long long row = i + k * deltaRow;
-//                        long long col = j + k * deltaCol;
-//
-//                        if (ctx->parameters.infinite_field == 0 &&
-//                            (row < 0 || row >= ctx->parameters.size ||
-//                                col < 0 || col >= ctx->parameters.size)) {
-//                            valid = 0;
-//                            break;
-//                        }
-//
-//                        char val = get_value(ctx->board, row, col, ctx->parameters.size, ctx);
-//
-//                        if (val == ctx->parameters.player) {
-//                            playerCount++;
-//                        }
-//                        else if (val == '.') {
-//                            emptyCount++;
-//                            emptyRow = row;
-//                            emptyCol = col;
-//                        }
-//                        else if (val == ctx->parameters.ai) {
-//                            valid = 0;
-//                            break;
-//                        }
-//                    }
-//
-//                    //игрок может выиграть следующим ходом
-//                    if (valid && playerCount >= threatLength && emptyCount == 1) {
-//                        //проверяем, что клетка действительно пустая
-//                        if (get_value(ctx->board, emptyRow, emptyCol, ctx->parameters.size, ctx) == '.') {
-//                            *bx = emptyRow;
-//                            *by = emptyCol;
-//                            return true;
-//                        }
-//                    }
-//                }
-//            }
-//        }
-//    }
-//    return false;
-//}
-//
-////поиск и блокировка последовательностей из 2+ крестиков
-//bool find_and_block_sequences(GameContext* ctx, long long* bx, long long* by) {
-//    int directions[8][2] = {
-//        {0,1}, {1,0}, {1,1}, {1,-1}, {0,-1}, {-1,0}, {-1,-1}, {-1,1}
-//    };
-//
-//    //сначала ищем самые длинные последовательности
-//    for (int targetLength = ctx->parameters.len - 1; targetLength >= 2; targetLength--) {
-//        for (int dir = 0; dir < 8; dir++) {
-//            int deltaRow = directions[dir][0];
-//            int deltaCol = directions[dir][1];
-//
-//            //проверяем в области вокруг занятых клеток
-//            for (long long i = ctx->bbox.minx - 2; i <= ctx->bbox.maxx + 2; i++) {
-//                for (long long j = ctx->bbox.miny - 2; j <= ctx->bbox.maxy + 2; j++) {
-//                    long long row = i, col = j;
-//                    int count = 0;
-//                    int emptyFound = 0;
-//                    long long emptyRow = -1, emptyCol = -1;
-//                    while (1) {
-//                        //проверяем границы для ограниченного поля
-//                        if (ctx->parameters.infinite_field == 0 &&
-//                            (row < 0 || row >= ctx->parameters.size ||
-//                                col < 0 || col >= ctx->parameters.size)) {
-//                            break;
-//                        }
-//
-//                        char val = get_value(ctx->board, row, col, ctx->parameters.size, ctx);
-//
-//                        if (val == ctx->parameters.player) {
-//                            count++;
-//                        }
-//                        else if (val == '.' && !emptyFound) {
-//                            emptyFound = 1;
-//                            emptyRow = row;
-//                            emptyCol = col;
-//                        }
-//                        else {
-//                            break;
-//                        }
-//
-//                        if (count >= targetLength && emptyFound) {
-//                            if (get_value(ctx->board, emptyRow, emptyCol, ctx->parameters.size, ctx) == '.') {
-//                                *bx = emptyRow;
-//                                *by = emptyCol;
-//                                return true;
-//                            }
-//                        }
-//
-//                        row += deltaRow;
-//                        col += deltaCol;
-//                    }
-//                }
-//            }
-//        }
-//    }
-//
-//    return false;
-//}
-//
-////улучшенный поиск ходов рядом с фигурами игрока
-//bool find_move_near_player(GameContext* ctx, long long* bx, long long* by) {
-//    int directions[8][2] = {
-//        {-1, -1}, {-1, 0}, {-1, 1},
-//        {0, -1},           {0, 1},
-//        {1, -1},  {1, 0},  {1, 1}
-//    };
-//
-//    //cначала ищем позиции, которые находятся МЕЖДУ двумя фигурами игрока
-//    for (long long i = ctx->bbox.minx - 2; i <= ctx->bbox.maxx + 2; i++) {
-//        for (long long j = ctx->bbox.miny - 2; j <= ctx->bbox.maxy + 2; j++) {
-//            if (get_value(ctx->board, i, j, ctx->parameters.size, ctx) != '.') {
-//                continue;
-//            }
-//
-//            int playerPairs = 0;
-//            for (int dir1 = 0; dir1 < 8; dir1++) {
-//                long long row1 = i + directions[dir1][0];
-//                long long col1 = j + directions[dir1][1];
-//
-//                int oppositeDir = (dir1 + 4) % 8;
-//                long long row2 = i + directions[oppositeDir][0];
-//                long long col2 = j + directions[oppositeDir][1];
-//
-//                if (ctx->parameters.infinite_field == 0) {
-//                    if (row1 < 0 || row1 >= ctx->parameters.size || col1 < 0 || col1 >= ctx->parameters.size ||
-//                        row2 < 0 || row2 >= ctx->parameters.size || col2 < 0 || col2 >= ctx->parameters.size) {
-//                        continue;
-//                    }
-//                }
-//
-//                char val1 = get_value(ctx->board, row1, col1, ctx->parameters.size, ctx);
-//                char val2 = get_value(ctx->board, row2, col2, ctx->parameters.size, ctx);
-//
-//                if (val1 == ctx->parameters.player && val2 == ctx->parameters.player) {
-//                    playerPairs++;
-//                }
-//            }
-//            if (playerPairs > 0) {
-//                *bx = i;
-//                *by = j;
-//                return true;
-//            }
-//        }
-//    }
-//    long long bestRow = -1, bestCol = -1;
-//    int maxPlayerNeighbors = 0;
-//
-//    for (long long i = ctx->bbox.minx - 2; i <= ctx->bbox.maxx + 2; i++) {
-//        for (long long j = ctx->bbox.miny - 2; j <= ctx->bbox.maxy + 2; j++) {
-//            if (get_value(ctx->board, i, j, ctx->parameters.size, ctx) != '.') {
-//                continue;
-//            }
-//
-//            int playerNeighbors = 0;
-//
-//            for (int dir = 0; dir < 8; dir++) {
-//                long long newRow = i + directions[dir][0];
-//                long long newCol = j + directions[dir][1];
-//
-//                if (ctx->parameters.infinite_field == 0 &&
-//                    (newRow < 0 || newRow >= ctx->parameters.size ||
-//                        newCol < 0 || newCol >= ctx->parameters.size)) {
-//                    continue;
-//                }
-//
-//                char val = get_value(ctx->board, newRow, newCol, ctx->parameters.size, ctx);
-//                if (val == ctx->parameters.player) {
-//                    playerNeighbors++;
-//                }
-//            }
-//
-//            if (playerNeighbors > maxPlayerNeighbors && playerNeighbors > 0) {
-//                maxPlayerNeighbors = playerNeighbors;
-//                bestRow = i;
-//                bestCol = j;
-//            }
-//        }
-//    }
-//
-//    if (maxPlayerNeighbors >= 1 && bestRow != -1) {
-//        *bx = bestRow;
-//        *by = bestCol;
-//        return true;
-//    }
-//
-//    return false;
-//}
 //
 ////оценка эффективности блокирующего хода
 //int evaluate_blocking_move(GameContext* ctx, long long row, long long col) {
@@ -1086,90 +559,369 @@
 //    return score;
 //}
 //
-////поиск лучшей позиции блокировки
-//bool find_best_blocking_position(GameContext* ctx, long long* bx, long long* by) {
-//    long long criticalRow, criticalCol;
-//    if (find_critical_threat(ctx, &criticalRow, &criticalCol)) {
-//        *bx = criticalRow;
-//        *by = criticalCol;
-//        return true;
-//    }
+//void balanced_computer_move(GameContext* ctx) {
+//    // === ШАГ 1: СНАЧАЛА ПРОВЕРЯЕМ САМОЕ ВАЖНОЕ ===
 //
-//    long long bestRow = -1, bestCol = -1;
-//    int bestScore = INT_MIN;
+//    // 1A. Можем ли ВЫИГРАТЬ СЕЙЧАС? (самый высокий приоритет)
+//    best_move candidates;
+//    generate_candidates(ctx->board, &ctx->parameters, &ctx->bbox, true, 10, &candidates, ctx);
 //
-//    for (long long i = ctx->bbox.minx - 2; i <= ctx->bbox.maxx + 2; i++) {
-//        for (long long j = ctx->bbox.miny - 2; j <= ctx->bbox.maxy + 2; j++) {
-//            if (ctx->parameters.infinite_field == 0 &&
-//                (i < 0 || i >= ctx->parameters.size ||
-//                    j < 0 || j >= ctx->parameters.size)) {
-//                continue;
-//            }
+//    for (int i = 0; i < candidates.n; i++) {
+//        long long x = candidates.x[i];
+//        long long y = candidates.y[i];
 //
-//            if (get_value(ctx->board, i, j, ctx->parameters.size, ctx) != '.') {
-//                continue;
-//            }
+//        insert(ctx->board, x, y, ctx->parameters.ai);
+//        bool win = check_win(ctx->board, ctx->parameters.size, ctx->parameters.len,
+//            x, y, ctx->parameters.ai, ctx);
+//        remove_cell(ctx->board, x, y);
 //
-//            int score = evaluate_blocking_move(ctx, i, j);
-//
-//            if (ctx->parameters.infinite_field == 0) {
-//                long long center = ctx->parameters.size / 2;
-//                long long distance = llabs(i - center) + llabs(j - center);
-//                score += (ctx->parameters.size - distance);
-//            }
-//
-//            if (score > bestScore) {
-//                bestScore = score;
-//                bestRow = i;
-//                bestCol = j;
-//            }
+//        if (win) {
+//            // ВЫИГРЫВАЕМ СРАЗУ!
+//            insert(ctx->board, x, y, ctx->parameters.ai);
+//            bbox_on_place(&ctx->bbox, x, y);
+//            ctx->parameters.last_ai_x = x;
+//            ctx->parameters.last_ai_y = y;
+//            return;
 //        }
 //    }
 //
-//    if (bestRow != -1 && bestCol != -1) {
-//        *bx = bestRow;
-//        *by = bestCol;
-//        return true;
+//    // 1B. Нужно ли БЛОКИРОВАТЬ выигрыш игрока? (второй приоритет)
+//    generate_candidates(ctx->board, &ctx->parameters, &ctx->bbox, false, 10, &candidates, ctx);
+//
+//    for (int i = 0; i < candidates.n; i++) {
+//        long long x = candidates.x[i];
+//        long long y = candidates.y[i];
+//
+//        insert(ctx->board, x, y, ctx->parameters.player);
+//        bool player_wins = check_win(ctx->board, ctx->parameters.size, ctx->parameters.len,
+//            x, y, ctx->parameters.player, ctx);
+//        remove_cell(ctx->board, x, y);
+//
+//        if (player_wins) {
+//            // СРОЧНО БЛОКИРУЕМ!
+//            insert(ctx->board, x, y, ctx->parameters.ai);
+//            bbox_on_place(&ctx->bbox, x, y);
+//            ctx->parameters.last_ai_x = x;
+//            ctx->parameters.last_ai_y = y;
+//            return;
+//        }
 //    }
 //
-//    return false;
+//    // === ШАГ 2: ЕСЛИ НЕТ СРОЧНЫХ ХОДОВ, СЧИТАЕМ БАЛАНСИРОВАННУЮ ОЦЕНКУ ===
+//
+//    // 2A. Находим ВСЕ потенциально хорошие ходы (ограниченное количество)
+//    best_move good_moves;
+//    generate_candidates(ctx->board, &ctx->parameters, &ctx->bbox, true, 15, &good_moves, ctx);
+//
+//    if (good_moves.n == 0) {
+//        // Нет ходов - ничья
+//        return;
+//    }
+//
+//    // 2B. Для каждого хода считаем КОМБИНИРОВАННУЮ оценку:
+//    //    (Атака * 2) + (Защита * 1.5) + (Позиция * 1)
+//
+//    int best_score = INT_MIN;
+//    long long best_x = good_moves.x[0];
+//    long long best_y = good_moves.y[0];
+//
+//    for (int i = 0; i < good_moves.n; i++) {
+//        long long x = good_moves.x[i];
+//        long long y = good_moves.y[i];
+//
+//        if (get_value(ctx->board, x, y, ctx->parameters.size, ctx) != '.') {
+//            continue;
+//        }
+//
+//        // ОЦЕНКА АТАКИ: насколько хорош этот ход для НАС
+//        int attack_score = 0;
+//
+//        // Проверяем, создаем ли мы выигрышную угрозу
+//        insert(ctx->board, x, y, ctx->parameters.ai);
+//
+//        // Считаем линии, где у нас почти выигрыш
+//        for (int dir = 0; dir < 4; dir++) {
+//            int dx = (dir == 0) ? 1 : (dir == 1) ? 0 : (dir == 2) ? 1 : 1;
+//            int dy = (dir == 0) ? 0 : (dir == 1) ? 1 : (dir == 2) ? 1 : -1;
+//
+//            // Проверяем в обе стороны от нашей фигуры
+//            int ai_count = 1; // Наша новая фигура уже стоит
+//            int max_length = 0;
+//
+//            // В одну сторону
+//            for (int step = 1; step < ctx->parameters.len; step++) {
+//                char val = get_value(ctx->board, x + dx * step, y + dy * step,
+//                    ctx->parameters.size, ctx);
+//                if (val == ctx->parameters.ai) {
+//                    ai_count++;
+//                }
+//                else if (val != '.') {
+//                    break;
+//                }
+//            }
+//
+//            // В другую сторону
+//            for (int step = 1; step < ctx->parameters.len; step++) {
+//                char val = get_value(ctx->board, x - dx * step, y - dy * step,
+//                    ctx->parameters.size, ctx);
+//                if (val == ctx->parameters.ai) {
+//                    ai_count++;
+//                }
+//                else if (val != '.') {
+//                    break;
+//                }
+//            }
+//
+//            // Оцениваем угрозу
+//            if (ai_count >= ctx->parameters.len) {
+//                attack_score += 100000; // Мы выигрываем!
+//            }
+//            else if (ai_count == ctx->parameters.len - 1) {
+//                attack_score += 5000; // Сильная угроза (один ход до победы)
+//            }
+//            else if (ai_count == ctx->parameters.len - 2) {
+//                attack_score += 1000; // Средняя угроза
+//            }
+//            else if (ai_count >= 2) {
+//                attack_score += ai_count * 100; // Слабая угроза
+//            }
+//        }
+//
+//        // ОЦЕНКА ЗАЩИТЫ: насколько хорошо этот ход блокирует ИГРОКА
+//        int defense_score = evaluate_blocking_move(ctx, x, y);
+//
+//        // Проверяем специальные случаи блокировки
+//        remove_cell(ctx->board, x, y); // Убираем нашу фигуру для проверки игрока
+//
+//        // Проверяем, блокирует ли этот ход потенциальный выигрыш игрока
+//        insert(ctx->board, x, y, ctx->parameters.player);
+//        for (int dir = 0; dir < 4; dir++) {
+//            int dx = (dir == 0) ? 1 : (dir == 1) ? 0 : (dir == 2) ? 1 : 1;
+//            int dy = (dir == 0) ? 0 : (dir == 1) ? 1 : (dir == 2) ? 1 : -1;
+//
+//            int player_count = 1;
+//
+//            // В одну сторону
+//            for (int step = 1; step < ctx->parameters.len; step++) {
+//                char val = get_value(ctx->board, x + dx * step, y + dy * step,
+//                    ctx->parameters.size, ctx);
+//                if (val == ctx->parameters.player) {
+//                    player_count++;
+//                }
+//                else if (val != '.') {
+//                    break;
+//                }
+//            }
+//
+//            // В другую сторону
+//            for (int step = 1; step < ctx->parameters.len; step++) {
+//                char val = get_value(ctx->board, x - dx * step, y - dy * step,
+//                    ctx->parameters.size, ctx);
+//                if (val == ctx->parameters.player) {
+//                    player_count++;
+//                }
+//                else if (val != '.') {
+//                    break;
+//                }
+//            }
+//
+//            if (player_count >= ctx->parameters.len - 1) {
+//                defense_score += 2000; // Блокируем опасную угрозу
+//            }
+//        }
+//        remove_cell(ctx->board, x, y); // Убираем фигуру игрока
+//
+//        // Ставим обратно нашу фигуру для оценки позиции
+//        insert(ctx->board, x, y, ctx->parameters.ai);
+//
+//        // ОЦЕНКА ПОЗИЦИИ: общая выгодность позиции
+//        int position_score = 0;
+//
+//        // Центр лучше (особенно на бесконечном поле)
+//        if (ctx->parameters.infinite_field == 1) {
+//            long long dist = llabs(x) + llabs(y);
+//            position_score += (10 - dist) * 100; // Ближе к центру = лучше
+//        }
+//
+//        // Ходы рядом с нашими фигурами лучше
+//        int our_neighbors = 0;
+//        for (int dx = -1; dx <= 1; dx++) {
+//            for (int dy = -1; dy <= 1; dy++) {
+//                if (dx == 0 && dy == 0) continue;
+//                char val = get_value(ctx->board, x + dx, y + dy, ctx->parameters.size, ctx);
+//                if (val == ctx->parameters.ai) {
+//                    our_neighbors++;
+//                }
+//            }
+//        }
+//        position_score += our_neighbors * 500;
+//
+//        // Ходы рядом с фигурами игрока тоже хороши (блокировка)
+//        int player_neighbors = 0;
+//        for (int dx = -1; dx <= 1; dx++) {
+//            for (int dy = -1; dy <= 1; dy++) {
+//                if (dx == 0 && dy == 0) continue;
+//                char val = get_value(ctx->board, x + dx, y + dy, ctx->parameters.size, ctx);
+//                if (val == ctx->parameters.player) {
+//                    player_neighbors++;
+//                }
+//            }
+//        }
+//        position_score += player_neighbors * 300;
+//
+//        // Убираем нашу фигуру
+//        remove_cell(ctx->board, x, y);
+//
+//        // === КОМБИНИРОВАННАЯ ОЦЕНКА ===
+//        // Веса: Атака важнее, но защита тоже очень важна
+//        int total_score = (attack_score * 2) + (defense_score * 3) + position_score;
+//
+//        // Бонус за ходы, которые и атакуют, и защищают
+//        if (attack_score > 1000 && defense_score > 1000) {
+//            total_score += 5000; // Идеальный ход!
+//        }
+//
+//        // Для бесконечного поля: на первых ходах стремимся к центру
+//        if (ctx->parameters.infinite_field == 1 && ctx->parameters.count_moves < 6) {
+//            long long dist = llabs(x) + llabs(y);
+//            if (dist <= 2) {
+//                total_score += 2000; // Центр на ранней стадии
+//            }
+//        }
+//
+//        if (total_score > best_score) {
+//            best_score = total_score;
+//            best_x = x;
+//            best_y = y;
+//        }
+//    }
+//
+//    // === ШАГ 3: ДЕЛАЕМ ЛУЧШИЙ ХОД ===
+//    insert(ctx->board, best_x, best_y, ctx->parameters.ai);
+//    bbox_on_place(&ctx->bbox, best_x, best_y);
+//    ctx->parameters.last_ai_x = best_x;
+//    ctx->parameters.last_ai_y = best_y;
 //}
 //
-////для харда и эксперта
+//// УПРОЩЕННАЯ версия для скорости (если balanced_computer_move все еще медленный)
+//void fast_balanced_move(GameContext* ctx) {
+//    // 1. Проверка выигрыша компьютера
+//    best_move moves;
+//    generate_candidates(ctx->board, &ctx->parameters, &ctx->bbox, true, 8, &moves, ctx);
+//
+//    for (int i = 0; i < moves.n; i++) {
+//        long long x = moves.x[i];
+//        long long y = moves.y[i];
+//
+//        insert(ctx->board, x, y, ctx->parameters.ai);
+//        bool win = check_win(ctx->board, ctx->parameters.size, ctx->parameters.len,
+//            x, y, ctx->parameters.ai, ctx);
+//        remove_cell(ctx->board, x, y);
+//
+//        if (win) {
+//            insert(ctx->board, x, y, ctx->parameters.ai);
+//            bbox_on_place(&ctx->bbox, x, y);
+//            ctx->parameters.last_ai_x = x;
+//            ctx->parameters.last_ai_y = y;
+//            return;
+//        }
+//    }
+//
+//    // 2. Проверка блокировки игрока
+//    generate_candidates(ctx->board, &ctx->parameters, &ctx->bbox, false, 8, &moves, ctx);
+//
+//    for (int i = 0; i < moves.n; i++) {
+//        long long x = moves.x[i];
+//        long long y = moves.y[i];
+//
+//        insert(ctx->board, x, y, ctx->parameters.player);
+//        bool player_wins = check_win(ctx->board, ctx->parameters.size, ctx->parameters.len,
+//            x, y, ctx->parameters.player, ctx);
+//        remove_cell(ctx->board, x, y);
+//
+//        if (player_wins) {
+//            insert(ctx->board, x, y, ctx->parameters.ai);
+//            bbox_on_place(&ctx->bbox, x, y);
+//            ctx->parameters.last_ai_x = x;
+//            ctx->parameters.last_ai_y = y;
+//            return;
+//        }
+//    }
+//
+//    // 3. Если нет срочных ходов - простая эвристика
+//    generate_candidates(ctx->board, &ctx->parameters, &ctx->bbox, true, 12, &moves, ctx);
+//
+//    if (moves.n == 0) return;
+//
+//    int best_score = INT_MIN;
+//    long long best_x = moves.x[0];
+//    long long best_y = moves.y[0];
+//
+//    for (int i = 0; i < moves.n; i++) {
+//        long long x = moves.x[i];
+//        long long y = moves.y[i];
+//
+//        // Простая оценка: line_score для атаки + evaluate_blocking_move для защиты
+//        insert(ctx->board, x, y, ctx->parameters.ai);
+//        int attack = line_score(ctx->board, ctx->parameters.size, ctx->parameters.len,
+//            x, y, ctx->parameters.ai, ctx);
+//        remove_cell(ctx->board, x, y);
+//
+//        int defense = evaluate_blocking_move(ctx, x, y);
+//
+//        // Комбинированная оценка (защита чуть важнее)
+//        int score = attack + defense * 2;
+//
+//        // Бонус за центр на бесконечном поле
+//        if (ctx->parameters.infinite_field == 1) {
+//            long long dist = llabs(x) + llabs(y);
+//            if (dist <= 3) score += 1000;
+//        }
+//
+//        if (score > best_score) {
+//            best_score = score;
+//            best_x = x;
+//            best_y = y;
+//        }
+//    }
+//
+//    insert(ctx->board, best_x, best_y, ctx->parameters.ai);
+//    bbox_on_place(&ctx->bbox, best_x, best_y);
+//    ctx->parameters.last_ai_x = best_x;
+//    ctx->parameters.last_ai_y = best_y;
+//}
+//
+//// HARD/EXPERT
 //void new_computer_move(GameContext* ctx) {
-//    long long bx, by;
-//
-//    if (find_critical_threat(ctx, &bx, &by)) {
-//        insert(ctx->board, bx, by, ctx->parameters.ai);
-//        bbox_on_place(&ctx->bbox, bx, by);
-//        ctx->parameters.last_ai_x = bx;
-//        ctx->parameters.last_ai_y = by;
-//        return;
+//    if (ctx->parameters.infinite_field == 1 && ctx->parameters.count_moves < 3) {
+//        if (ctx->parameters.last_pl_x != LLONG_MAX && ctx->parameters.last_pl_y != LLONG_MAX) {
+//            //просто ставим рядом с игроком
+//            int dirs[8][2] = { {1,0},{0,1},{-1,0},{0,-1},{1,1},{1,-1},{-1,1},{-1,-1} };
+//            for (int i = 0; i < 8; i++) {
+//                long long x = ctx->parameters.last_pl_x + dirs[i][0];
+//                long long y = ctx->parameters.last_pl_y + dirs[i][1];
+//                if (get_value(ctx->board, x, y, ctx->parameters.size, ctx) == '.') {
+//                    insert(ctx->board, x, y, ctx->parameters.ai);
+//                    bbox_on_place(&ctx->bbox, x, y);
+//                    ctx->parameters.last_ai_x = x;
+//                    ctx->parameters.last_ai_y = y;
+//                    return;
+//                }
+//            }
+//        }
 //    }
-//
-//    if (find_and_block_sequences(ctx, &bx, &by)) {
-//        insert(ctx->board, bx, by, ctx->parameters.ai);
-//        bbox_on_place(&ctx->bbox, bx, by);
-//        ctx->parameters.last_ai_x = bx;
-//        ctx->parameters.last_ai_y = by;
-//        return;
+//    if (ctx->parameters.infinite_field == 1) {
+//        // Для бесконечного поля используем быстрый алгоритм
+//        fast_balanced_move(ctx);
 //    }
-//
-//    if (find_move_near_player(ctx, &bx, &by)) {
-//        insert(ctx->board, bx, by, ctx->parameters.ai);
-//        bbox_on_place(&ctx->bbox, bx, by);
-//        ctx->parameters.last_ai_x = bx;
-//        ctx->parameters.last_ai_y = by;
-//        return;
+//    else if (ctx->parameters.difficulty == 4 &&) {
+//        // Для эксперта на обычном поле используем полный алгоритм
+//        balanced_computer_move(ctx);
 //    }
-//
-//    if (ctx->parameters.difficulty == 3) {
-//        ctx->parameters.depth = 6;
+//    else {
+//        // Для HARD используем быстрый
+//        fast_balanced_move(ctx);
 //    }
-//    if (ctx->parameters.difficulty == 4) {
-//        ctx->parameters.depth = 10;
-//    }
-//    minimax_move(ctx->board, &ctx->parameters, &ctx->bbox, ctx);
 //}
 //
 //void easy_move(Table* board, base* parameters, bounds* bbox, GameContext* ctx) {
@@ -1215,7 +967,6 @@
 //
 //
 ////////////////////////////////////////////////////////////////////////////////////////////////////////
-//// Save and load game
 //void save_game(GameContext* ctx) {
 //    FILE* file = fopen("save.dat", "wb");
 //    if (file) {
@@ -1954,8 +1705,21 @@
 //                }
 //                ctx->parameters.count_moves = 0;
 //                ctx->bbox.initialized = false;
-//                ctx->cursor_x = ctx->cursor_y = 0;
-//                ctx->view_offset_x = ctx->view_offset_y = 0;
+//                if (ctx->parameters.infinite_field == 1) {
+//                    // Для бесконечного поля начинаем с видимого центра
+//                    ctx->cursor_x = 0;
+//                    ctx->cursor_y = 0;
+//                    // Центрируем вид так, чтобы центр поля был в центре экрана
+//                    ctx->view_offset_x = -VISIBLE_CELLS_X / 2 * CELL_SIZE + CELL_SIZE / 2;
+//                    ctx->view_offset_y = -VISIBLE_CELLS_Y / 2 * CELL_SIZE + CELL_SIZE / 2;
+//                }
+//                else {
+//                    // Для ограниченного поля как раньше
+//                    ctx->cursor_x = 0;
+//                    ctx->cursor_y = 0;
+//                    ctx->view_offset_x = 0;
+//                    ctx->view_offset_y = 0;
+//                }
 //                ctx->is_player_turn = ctx->parameters.player_moves_first;
 //                ctx->winner = 0;
 //            }
@@ -2089,24 +1853,28 @@
 //        switch (key) {
 //        case GLFW_KEY_UP:
 //            ctx->cursor_y--;
+//            // Для бесконечного поля нет границ
 //            if (ctx->cursor_y * CELL_SIZE - ctx->view_offset_y < 0) {
 //                ctx->view_offset_y = ctx->cursor_y * CELL_SIZE;
 //            }
 //            break;
 //        case GLFW_KEY_DOWN:
 //            ctx->cursor_y++;
+//            // Для бесконечного поля нет границ
 //            if (ctx->cursor_y * CELL_SIZE - ctx->view_offset_y > (VISIBLE_CELLS_Y - 1) * CELL_SIZE) {
 //                ctx->view_offset_y = ctx->cursor_y * CELL_SIZE - (VISIBLE_CELLS_Y - 1) * CELL_SIZE;
 //            }
 //            break;
 //        case GLFW_KEY_LEFT:
 //            ctx->cursor_x--;
+//            // Для бесконечного поля нет границ
 //            if (ctx->cursor_x * CELL_SIZE - ctx->view_offset_x < 0) {
 //                ctx->view_offset_x = ctx->cursor_x * CELL_SIZE;
 //            }
 //            break;
 //        case GLFW_KEY_RIGHT:
 //            ctx->cursor_x++;
+//            // Для бесконечного поля нет границ
 //            if (ctx->cursor_x * CELL_SIZE - ctx->view_offset_x > (VISIBLE_CELLS_X - 1) * CELL_SIZE) {
 //                ctx->view_offset_x = ctx->cursor_x * CELL_SIZE - (VISIBLE_CELLS_X - 1) * CELL_SIZE;
 //            }
@@ -2454,4 +2222,4 @@
 //    free(ctx.board);
 //    glfwTerminate();
 //    return 0;
-//}
+////}
